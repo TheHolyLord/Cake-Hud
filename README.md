@@ -19,13 +19,13 @@
 | Loom | `1.17.20` |
 | 环境 | 双端（客户端 HUD + 服务端统计推送） |
 | 许可证 | MIT |
-| 作者 | 麒麟 (Kirin0321) |
+| 作者 | （前）麒麟 (Kirin0321) （现）节斗圣主（MCHolyLord）|
 | 贡献者 | OnlyScoutCat（赞助 · MC Server `sc4.i9idc.com:12439`） |
 
 ## 功能特性
 
 ### 核心 HUD
-- **自定义血量条**：分层绘制红心 / 魂心 / 黑心 / 蓝心 / 碎心 / 粉心，支持多色心叠加。
+- **自定义血量条**：分层绘制红心 / 魂心 / 黑心 / 蓝心 / 碎心，支持多色心叠加。
 - **属性面板**：常显 / 背包显示 / 隐藏三档切换，可调整列数与位置；支持服务端属性推送与客户端定时 `trigger ViewStats` 两条取数路径。
 - **队友头顶血条**：世界空间渲染，支持四色心叠加外观与老版多槽溢出条两种风格，可切换横向 / 纵向布局。
 - **怪物追踪血条**：全部显示 / 仅最近目标 / 关闭三档，按 `Targetting`、`Boss`、`E` 标签与距离认领怪物数据，避免同名怪物串血条。
@@ -146,9 +146,8 @@ Cake-Tower-HUD-Plus/
 
 ## 反馈与发布
 
-- CurseForge 页面：<https://www.curseforge.com/minecraft/mc-mods/cake-tower-hud-plus>
-- 问题反馈：<https://www.curseforge.com/minecraft/mc-mods/cake-tower-hud-plus/issues>
-- 源码仓库：<https://github.com/Kirin-0321/Cake-Tower-HUD-Plus>
+- CurseForge 页面：<https://www.curseforge.com/minecraft/mc-mods/cake-tower-hud>
+- 源码仓库：<https://github.com/TheHolyLord/Cake-Hud>
 
 ## 许可
 
