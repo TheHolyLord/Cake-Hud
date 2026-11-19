@@ -1,0 +1,29 @@
+# Gradle / Fabric Loom
+build/
+.gradle/
+run/
+logs/
+*.class
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.code-workspace
+.settings/
+.project
+.classpath
+bin/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 本地运行时生成的配置与存档（不纳入版本管理）
+config/
+*.log
+hs_err_pid*

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: CurseForge 反馈页
+    url: https://www.curseforge.com/minecraft/mc-mods/cake-tower-hud-plus/issues
+    about: 也可以在 CurseForge 页面提交问题反馈
+  - name: 模组主页
+    url: https://www.curseforge.com/minecraft/mc-mods/cake-tower-hud-plus
+    about: 查看模组介绍与已发布版本

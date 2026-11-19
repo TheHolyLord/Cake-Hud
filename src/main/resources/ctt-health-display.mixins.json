@@ -1,0 +1,34 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.ctt.healthdisplay.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "BossBarHudAccessor",
+    "BossBarHudRenderMixin",
+    "ClientScoreboardPacketMixin",
+    "GameRendererAccessor",
+    "HudActionBarMixin",
+    "HudSubtitleAccessor",
+    "InGameHudTitleMixin",
+    "InputConstantsSafetyMixin",
+    "LerpingBossEventAccessor",
+    "TeammateHealthMixin",
+    "SubtitleOverlayAccessor",
+    "SubtitleOverlayMixin",
+    "LoreContainerScreenAccessor",
+    "LoreContainerScreenMixin",
+    "LoreScreenRenderMixin",
+    "LoreInputMixin",
+    "LoreChatMessageMixin",
+    "LoreChatClickMixin",
+    "LoreAdvancementTabMixin",
+    "LoreAdvancementProgressAccessor",
+    "LoreAdvancementWidgetMixin",
+    "LorePaginatedTabMixin",
+    "LorePaginatedWidgetMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
