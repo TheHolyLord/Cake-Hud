@@ -19,7 +19,7 @@
 | Loom | `1.17.20` |
 | 环境 | 双端（客户端 HUD + 服务端统计推送） |
 | 许可证 | MIT |
-| 作者 | 麒麟 (Kirin0321) |
+| 作者 | （前）麒麟 (Kirin0321) （现）节斗圣主（MCHolyLord）|
 | 贡献者 | OnlyScoutCat（赞助 · MC Server `sc4.i9idc.com:12439`） |
 
 ## 功能特性
@@ -147,9 +147,8 @@ Cake-Tower-HUD-Plus/
 
 ## 反馈与发布
 
-- CurseForge 页面：<https://www.curseforge.com/minecraft/mc-mods/cake-tower-hud-plus>
-- 问题反馈：<https://www.curseforge.com/minecraft/mc-mods/cake-tower-hud-plus/issues>
-- 源码仓库：<https://github.com/Kirin-0321/Cake-Tower-HUD-Plus>
+- CurseForge 页面：<https://www.curseforge.com/minecraft/mc-mods/cake-tower-hud>
+- 源码仓库：<https://github.com/TheHolyLord/Cake-Hud>
 
 ## 许可
 
