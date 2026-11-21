@@ -132,9 +132,9 @@
       },
       "22": {
         "en": "A Party's World",
-        "zh_cn": null,
+        "zh_cn": 派对世界,
         "slug": "a_partys_world",
-        "key": null
+        "key": "A Party's World"
       },
       "23": {
         "en": "Davids Pinball Machine",
@@ -359,10 +359,10 @@
         "key": "Joeys Manor"
       },
       "60": {
-        "en": "Sweet Canyon",
-        "zh_cn": "甜蜜峡谷",
-        "slug": "sweet_canyon",
-        "key": "Sweet Canyon"
+        "en": "Sweet Canyon (Christmas)",
+        "zh_cn": "甜蜜峡谷（圣诞节）",
+        "slug": "sweet_canyon_christmas",
+        "key": "Sweet Canyon (Christmas)"
       },
       "61": {
         "en": "Death Mountain",
@@ -401,12 +401,18 @@
         "key": "The Scrapyard Concert"
       },
       "67": {
-        "en": "Sweet Canyon Cake",
-        "zh_cn": null,
+        "en": "Sweet Canyon (Cake)",
+        "zh_cn": "甜蜜峡谷(蛋糕)",
         "slug": "sweet_canyon_cake",
-        "key": null
+        "key": "Sweet Canyon (Cake)"
       }
     },
+      "68": {
+        "en": "Peewee Land",
+        "zh_cn": "小矮人大道",
+        "slug": "peewee_land",
+        "key": "Peewee Land"
+      },
     "boss": {
       "1": {
         "en": "Gladiatus",
@@ -571,6 +577,20 @@
         "key": "Crystaline Collective"
       }
     },
+    "28": {
+        "en": "Shiftys",
+        "zh_cn": "希夫特",
+        "slug": "shiftys",
+        "key": "Shiftys"
+      }
+    },
+  "29": {
+        "en": "Wormhole Games Arena",
+        "zh_cn": "虫洞游戏竞技场",
+        "slug": "wormhole_games_arena",
+        "key": "Wormhole Games Arena"
+      }
+    },
     "miniboss": {},
     "shop": {
       "1": {
@@ -622,16 +642,16 @@
         "key": "Casino"
       },
       "9": {
-        "en": "Spamton's Shop",
-        "zh_cn": "斯潘顿的商店",
-        "slug": "spamton_shop",
-        "key": "Spamton's Shop"
+        "en": "Shifty's Shack",
+        "zh_cn": "希夫特的小屋",
+        "slug": "shifty_shack",
+        "key": "Shifty's Shack"
       },
       "10": {
         "en": "Bug Shop",
-        "zh_cn": null,
+        "zh_cn": "虫虫商店",
         "slug": "bug_shop",
-        "key": null
+        "key": "Bug Shop"
       },
       "11": {
         "en": "Forest Oasis",
@@ -662,6 +682,13 @@
         "zh_cn": "芙萝拉的花园",
         "slug": "florias_garden",
         "key": "Florias Garden"
+      }
+    },
+"16": {
+        "en": "The Watchers Vault",
+        "zh_cn": "守望尊城堡",
+        "slug": "the_watchers_vault",
+        "key": "The Watchers Vault"
       }
     },
     "ally": {
@@ -753,9 +780,9 @@
       },
       "10": {
         "en": "Muck Level Up Room",
-        "zh_cn": null,
+        "zh_cn": "Muck 升级房间",
         "slug": "muck_level_up_room",
-        "key": null
+        "key": "Muck Level Up Room"
       },
       "11": {
         "en": "Training Grounds",
