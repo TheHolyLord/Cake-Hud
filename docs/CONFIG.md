@@ -13,8 +13,10 @@
 | `horizontalLayout` | bool | `false` | 队友条是否横向布局 |
 | `statsX` | float | `0.005` | 属性面板 X 坐标 |
 | `statsY` | float | `0.005` | 属性面板 Y 坐标 |
-| `statsColumns` | int | `2` | 属性栏列数 |
-| `statsVisibility` | int | `0` | 属性栏显示：`0` 常显 / `1` 背包显示 / `2` 隐藏 |
+| `statsColumns` | int | `2` | 属性栏列数（上限 `MAX_STATS_COLUMNS = 3`） |
+| `showStatsOutsideInventory` | bool | `true` | 背包关闭时是否显示属性栏 |
+| `showStatsInInventory` | bool | `false` | 背包打开时是否显示属性栏 |
+| `loreTooltipAtCursor` | bool | `false` | 物品描述窗口位置：`false` 背包左侧 / `true` 跟随鼠标 |
 | `mobBarHalfWidth` | int | `60` | 怪物血条半宽 |
 | `teammateBarHalfWidth` | int | `40` | 队友血条半宽 |
 
@@ -58,6 +60,7 @@
 | `clientKillDebugChat` | bool | `false` | 击杀报告写入本地聊天 |
 
 > 旧字段 `showMobHeadHP` 仅用于旧 JSON 迁移：`false` 会映射到 `mobHeadHPMode = 2`。
+> 旧字段 `statsVisibility`（0 常显 / 1 背包显示 / 2 隐藏）在首次加载时迁移：`0` → `showStatsOutsideInventory = true`，`1` → `showStatsInInventory = true`；新代码不再读取该字段。
 
 ## 服务端 `ctt-health-display-server.json`
 

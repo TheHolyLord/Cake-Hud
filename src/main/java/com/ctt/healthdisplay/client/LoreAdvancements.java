@@ -16,8 +16,10 @@ public final class LoreAdvancements {
     private static Screen owner;
     private static Object tab;
     private static boolean tabSeen;
-    private static Node hovered, pinned, shown, cachedNode;
-    private static boolean cachedPinned, pressing;
+    private static Node hovered, pinned, cachedNode;
+    private static boolean cachedPinned, pressing, pressingCard, draggingCard, cardMoved;
+    private static PopupWindow.Seg pressedSegment;
+    private static double pressX, pressY, grabX, grabY, cardX, cardY;
     private static int cachedWidth, cachedPercent;
     private static String cachedFraction;
     private static PopupWindow card;
@@ -63,16 +65,9 @@ public final class LoreAdvancements {
         return new Node(widget, progress, Math.round(pos.x), Math.round(pos.y));
     }
 
-    public static void render(GuiGraphicsExtractor ctx, double mx, double my, boolean down) {
-        if (!tabSeen) {
-            reset();
-            return;
-        }
-        if (!down) pressing = false;
-        Node next = pinned != null ? pinned : !down ? hovered : null;
-        // Keep the card under the pointer, including the one-pixel gap above the node.
-        if (pinned == null && !down && overCard(mx, my, 1)) next = shown;
-        shown = next;
+    public static void render(GuiGraphicsExtractor ctx, boolean down) {
+        // 只有当前帧原版或分页进度提交的图标悬停能显示未固定的窗口。
+        Node next = pinned != null ? pinned : down ? null : hovered;
         if (next == null) {
             card = null;
             return;
@@ -108,8 +103,8 @@ public final class LoreAdvancements {
         int y = next.y() - card.h - 1;
         if (y < 2) y = next.y() + 27;
         if (x + card.w > ctx.guiWidth() - 2) x = next.x() + 26 - card.w;
-        card.x = Math.clamp(x, 2, Math.max(2, ctx.guiWidth() - card.w - 2));
-        card.y = Math.clamp(y, 2, Math.max(2, ctx.guiHeight() - card.h - 2));
+        card.x = Math.clamp(cardMoved ? cardX : x, 2, Math.max(2, ctx.guiWidth() - card.w - 2));
+        card.y = Math.clamp(cardMoved ? cardY : y, 2, Math.max(2, ctx.guiHeight() - card.h - 2));
         x = (int) card.x;
         y = (int) card.y;
         ctx.nextStratum();
@@ -130,31 +125,56 @@ public final class LoreAdvancements {
     }
 
     public static boolean click(Screen screen, double x, double y) {
-        if (owner != screen || !tabSeen) return false;
-        if (overCard(x, y, 0)) {
-            var segment = card.segAt(x, y);
-            if (segment != null) LorePopupManager.openEntry(segment.word, x, y, segment.color);
-            if (pinned == null) pin(shown);
-            pressing = true;
+        if (owner != screen || (card == null && !tabSeen)) return false;
+        if (pinned != null && overCard(x, y, 0)) {
+            pressing = pressingCard = true;
+            pressedSegment = card.segAt(x, y);
+            pressX = x;
+            pressY = y;
+            grabX = x - card.x;
+            grabY = y - card.y;
             return true;
         }
         if (hovered != null && x >= hovered.x() - 2 && x <= hovered.x() + 28
                 && y >= hovered.y() - 2 && y <= hovered.y() + 28) {
             pin(pinned != null && pinned.widget() == hovered.widget() ? null : hovered);
+            cardMoved = false;
             pressing = true;
             LorePopupManager.closeAll();
             return true;
         }
         pin(null);
-        shown = null;
         card = null;
+        cardMoved = false;
         return false;
     }
 
-    public static boolean release() {
+    static void move(double x, double y, int screenW, int screenH) {
+        if (!pressingCard || card == null || owner != Minecraft.getInstance().gui.screen()) return;
+        if (!draggingCard && !LorePopupManager.movedFrom(x, y, pressX, pressY)) return;
+        draggingCard = cardMoved = true;
+        cardX = Math.clamp(x - grabX, 2, Math.max(2, screenW - card.w - 2));
+        cardY = Math.clamp(y - grabY, 2, Math.max(2, screenH - card.h - 2));
+        card.x = cardX;
+        card.y = cardY;
+    }
+
+    public static boolean release(double x, double y) {
         boolean consumed = pressing;
-        pressing = false;
+        if (pressingCard && card != null && owner == Minecraft.getInstance().gui.screen()
+                && !draggingCard && !LorePopupManager.movedFrom(x, y, pressX, pressY)) {
+            var segment = card.segAt(x, y);
+            if (segment != null && segment == pressedSegment) {
+                LorePopupManager.openEntry(segment.word, x, y, segment.color);
+            }
+        }
+        clearPress();
         return consumed;
+    }
+
+    private static void clearPress() {
+        pressing = pressingCard = draggingCard = false;
+        pressedSegment = null;
     }
 
     private static void pin(Node node) {
@@ -165,9 +185,10 @@ public final class LoreAdvancements {
     }
 
     private static void reset() {
-        hovered = pinned = shown = cachedNode = null;
+        hovered = pinned = cachedNode = null;
         card = null;
         cachedFraction = null;
-        pressing = false;
+        cardMoved = false;
+        clearPress();
     }
 }

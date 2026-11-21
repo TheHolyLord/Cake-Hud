@@ -2,6 +2,21 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。版本号格式：`MAJOR.MINOR.PATCH-r<构建号>`。
 
+## [1.0.0-r73] - 2026-11-21
+
+### 新增
+- 背包界面按 `Alt` 固定 / 解除物品描述窗口（`LoreKeyboardMixin`）；固定窗口记住来源槽位与物品，再按 `Alt` 关闭，窗口可拖动、可点击下划线词条。
+- 物品描述窗口位置可选「背包左侧」或「鼠标旁」（配置项 `loreTooltipAtCursor`）。
+- 服务端 `TextDisplayBackgroundAccessor` Mixin：通过文字显示实体背景色识别治疗粒子，辅助服务端伤害 / 治疗探针归类。
+
+### 调整
+- 属性栏显示控制由旧的三档 `statsVisibility` 改为两个独立布尔：`showStatsOutsideInventory`（背包关闭时显示）与 `showStatsInInventory`（背包打开时显示）；旧配置按字段迁移。
+- `J` 键改为切换背包关闭时的属性栏开关，提示文案同步更新。
+- 关卡名表、中英语言词条、Lore 词条数据随地图新版本更新。
+
+### 修复
+- 修复物品描述 Tooltip 取消注入不可取消方法导致的崩溃（`getTooltipFromContainerItem is not cancellable`）。
+
 ## [1.0.0-r66] - 2026-11-19
 
 ### 新增

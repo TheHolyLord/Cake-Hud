@@ -4,7 +4,8 @@
   "package": "com.ctt.healthdisplay.server.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [
-    "ScoreboardUpdateMixin"
+    "ScoreboardUpdateMixin",
+    "TextDisplayBackgroundAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

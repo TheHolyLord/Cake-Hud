@@ -7,6 +7,7 @@ import com.ctt.healthdisplay.server.filter.FilterReason;
 import com.ctt.healthdisplay.server.filter.PendingDamageBuffer;
 import com.ctt.healthdisplay.server.filter.PerPlayerWeaponP95Registry;
 import com.ctt.healthdisplay.server.filter.WeaponIdResolver;
+import com.ctt.healthdisplay.server.mixin.TextDisplayBackgroundAccessor;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Display;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -344,7 +345,8 @@ public final class DamageProbe {
             Entity e = world.getEntityInAnyDimension(uuid);
             if (e == null) continue;
             if (e instanceof Display.TextDisplay td) {
-                return td.textRenderState().backgroundColor().get(0f) == HEAL_PARTICLE_BACKGROUND;
+                // 背景颜色属于实体同步数据，服务端生成粒子时已经可读。
+                return ((TextDisplayBackgroundAccessor) td).ctt$getBackgroundColor() == HEAL_PARTICLE_BACKGROUND;
             }
             return false; // 找到了但不是 text_display（理论上不会），稳妥起见不过滤
         }

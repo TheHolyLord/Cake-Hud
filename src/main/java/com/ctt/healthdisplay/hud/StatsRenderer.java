@@ -5,6 +5,8 @@ import com.ctt.healthdisplay.health.StatsData;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
 
@@ -13,16 +15,13 @@ import java.util.List;
 public class StatsRenderer {
 
     private static final int LINE_HEIGHT = 10;
-    private static final int TITLE_COLOR = 0xFFFFAA00;
+    public static boolean isPlayerInventory(Screen screen) {
+        return screen instanceof InventoryScreen || screen instanceof CreativeModeInventoryScreen;
+    }
 
     public static void render(GuiGraphicsExtractor context, StatsData data) {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null) return;
-
-        int vis = ModConfig.INSTANCE.statsVisibility;
-        if (vis == 2) return;
-        if (vis == 1 && !(client.gui.screen() instanceof InventoryScreen)) return;
-        if (vis == 0 && client.gui.hud.isHidden()) return;
 
         Font tr = client.font;
         int screenW = client.getWindow().getGuiScaledWidth();
@@ -42,7 +41,7 @@ public class StatsRenderer {
         List<Component> lines = data.getLines();
         if (lines.isEmpty()) return;
 
-        int columns = Math.max(1, Math.min(2, config.statsColumns));
+        int columns = Math.clamp(config.statsColumns, 1, ModConfig.MAX_STATS_COLUMNS);
 
         if (columns == 1) {
             int lineY = y;
@@ -57,7 +56,7 @@ public class StatsRenderer {
             }
             colWidth += 6;
 
-            int rows = (lines.size() + 1) / 2;
+            int rows = Math.ceilDiv(lines.size(), columns);
             for (int i = 0; i < lines.size(); i++) {
                 int col = i / rows;
                 int row = i % rows;

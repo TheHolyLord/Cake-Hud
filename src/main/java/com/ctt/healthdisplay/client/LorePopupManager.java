@@ -1,5 +1,6 @@
 package com.ctt.healthdisplay.client;
 
+import com.ctt.healthdisplay.config.ModConfig;
 import com.ctt.healthdisplay.mixin.LoreContainerScreenAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -7,6 +8,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import com.mojang.blaze3d.platform.Window;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.network.chat.Component;
@@ -17,7 +19,7 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * 弹窗总管家：悬停锁定（0.5 秒）、嵌套开窗、左键长按 0.2 秒拖动、
+ * 弹窗总管家：物品描述预览与固定、嵌套开窗、按住左键即可拖动、
  * 点空白关闭全部、点击粒子和轻响音效。
  * 每个弹窗记住来源界面（owner）：背包里的描述弹窗在关闭背包/按 ESC 时自动收起，
  * 聊天栏里点开的弹窗在关闭聊天栏/按 ESC 时自动收起。
@@ -28,10 +30,8 @@ import java.util.Random;
  * 所以「鼠标最后点的那个永远盖在其他窗口上面」——连窗口里的字也是后点的盖前点的。
  */
 public final class LorePopupManager {
-    public static final long LOCK_MS = 500L;          // 悬停多久锁定描述
-    public static final long DRAG_NS = 200_000_000L;  // 左键按住多久进入拖动
+    private static final double DRAG_DISTANCE_SQUARED = 1.0; // 至少移动一个界面像素才算拖动
     public static final int MAX_WINDOWS = 6;          // 最多同时存在 6 个窗口
-    public static final long RELOCK_GRACE_MS = 1500L; // 点空白关闭后，同一物品短暂不再自动锁定
     public static final int MOUSE_GAP_X = 8;          // 「跟着鼠标生成」时窗口相对光标右移的像素
     public static final int MOUSE_GAP_Y = 6;          // 「跟着鼠标生成」时窗口相对光标下移的像素
 
@@ -39,19 +39,23 @@ public final class LorePopupManager {
 
     public static final List<PopupWindow> WINDOWS = new ArrayList<>();
     private static PopupWindow sticky;
+    private static boolean sideTooltipPinned;
+    private static PopupWindow hoverPreview;
+    private static boolean showHoverPreview;
     private static int hoverSlotId = -1;
-    private static net.minecraft.world.item.ItemStack hoverStack = net.minecraft.world.item.ItemStack.EMPTY;
-    private static long hoverStartMs;
-    private static boolean lockedForHoverSlot;
-    private static int dismissedSlotId = -1;
-    private static long dismissedAtMs;
+    private static ItemStack hoverStack = ItemStack.EMPTY;
+    private static boolean hoverAtCursor;
+    private static int pinnedSlotId = -1;
+    private static ItemStack pinnedStack = ItemStack.EMPTY;
+    private static int previewWidth;
+    private static long previewRevision;
+    private static boolean previewAdvanced;
     private static Screen lastScreen;
 
     // 按下/拖动状态机
     private static PopupWindow pressWindow;
     private static PopupWindow.Seg pressSeg;
-    private static long pressStartNs;
-    private static double grabDx, grabDy;
+    private static double pressX, pressY, grabDx, grabDy;
     private static boolean dragging;
     private static boolean leftDown;
 
@@ -75,25 +79,36 @@ public final class LorePopupManager {
 
     private LorePopupManager() { }
 
+    public static void startFrame() {
+        showHoverPreview = false;
+    }
+
     public static void render(GuiGraphicsExtractor ctx) {
-        double x = scaledMouseX(), y = scaledMouseY();
-        frameTick((int) x, (int) y, ctx.guiWidth(), ctx.guiHeight());
-        LoreAdvancements.render(ctx, x, y, leftDown);
+        frameTick(ctx.guiWidth(), ctx.guiHeight());
+        LoreAdvancements.render(ctx, leftDown);
+        boolean hasPreview = !sideTooltipPinned && showHoverPreview && hoverPreview != null
+                && hoverPreview.owner == Minecraft.getInstance().gui.screen();
+        if (hasPreview && sticky == null) renderPopup(ctx, hoverPreview);
         for (PopupWindow popup : WINDOWS) {
-            ctx.nextStratum();
-            int px = (int) popup.x, py = (int) popup.y;
-            int bg = 0xFF100014;
-            ctx.fill(px - 3, py - 3, px + popup.w + 3, py + popup.h + 3, bg);
-            ctx.fill(px - 3, py - 3, px + popup.w + 3, py - 2, 0xFF00FFFC);
-            ctx.fill(px - 3, py + popup.h + 2, px + popup.w + 3, py + popup.h + 3, 0xFF00FFFC);
-            ctx.fill(px - 3, py - 2, px - 2, py + popup.h + 2, 0xFF0000FF);
-            ctx.fill(px + popup.w + 2, py - 2, px + popup.w + 3, py + popup.h + 2, 0xFF0000FF);
-            drawText(ctx, popup, bg);
+            renderPopup(ctx, popup);
+            if (popup == sticky && hasPreview) renderPopup(ctx, hoverPreview);
         }
         if (hasSparks()) {
             ctx.nextStratum();
             drawSparks(ctx);
         }
+    }
+
+    private static void renderPopup(GuiGraphicsExtractor ctx, PopupWindow popup) {
+        ctx.nextStratum();
+        int x = (int) popup.x, y = (int) popup.y;
+        int bg = 0xFF100014;
+        ctx.fill(x - 3, y - 3, x + popup.w + 3, y + popup.h + 3, bg);
+        ctx.fill(x - 3, y - 3, x + popup.w + 3, y - 2, 0xFF00FFFC);
+        ctx.fill(x - 3, y + popup.h + 2, x + popup.w + 3, y + popup.h + 3, 0xFF00FFFC);
+        ctx.fill(x - 3, y - 2, x - 2, y + popup.h + 2, 0xFF0000FF);
+        ctx.fill(x + popup.w + 2, y - 2, x + popup.w + 3, y + popup.h + 2, 0xFF0000FF);
+        drawText(ctx, popup, bg);
     }
 
     static void drawText(GuiGraphicsExtractor ctx, PopupWindow popup, int bg) {
@@ -163,30 +178,36 @@ public final class LorePopupManager {
         WINDOWS.add(w);
         pressWindow = w;
         pressSeg = w.segAt(mx, my);
-        pressStartNs = System.nanoTime();
+        pressX = mx;
+        pressY = my;
         grabDx = mx - w.x;
         grabDy = my - w.y;
         dragging = false;
     }
 
-    /** 每帧调用：先清掉“来源界面已关闭”的弹窗，再处理拖动、松手点击、边界、粒子。 */
-    public static void frameTick(int mouseX, int mouseY, int screenW, int screenH) {
+    static boolean movedFrom(double x, double y, double startX, double startY) {
+        double dx = x - startX, dy = y - startY;
+        return dx * dx + dy * dy >= DRAG_DISTANCE_SQUARED;
+    }
+
+    public static void move(double x, double y, int screenW, int screenH) {
+        if (!leftDown) return;
+        LoreAdvancements.move(x, y, screenW, screenH);
+        if (pressWindow == null || pressWindow.owner != Minecraft.getInstance().gui.screen()) return;
+        dragging |= movedFrom(x, y, pressX, pressY);
+        if (dragging) {
+            pressWindow.x = clampD(x - grabDx, 3, screenW - pressWindow.w - 3);
+            pressWindow.y = clampD(y - grabDy, 3, screenH - pressWindow.h - 3);
+        }
+    }
+
+    /** 每帧清理已关闭界面的弹窗，并处理窗口边界和粒子。 */
+    private static void frameTick(int screenW, int screenH) {
         closeWindowsOfClosedScreens();
         long now = System.nanoTime();
-        boolean down = leftDown;
-        if (pressWindow != null) {
-            if (down && !dragging && now - pressStartNs >= DRAG_NS) {
-                dragging = true;
-            }
-            if (down && dragging) {
-                pressWindow.x = clampD(mouseX - grabDx, 2, screenW - pressWindow.w - 2);
-                pressWindow.y = clampD(mouseY - grabDy, 2, screenH - pressWindow.h - 2);
-            }
-            if (!down) release(mouseX, mouseY);
-        }
         for (PopupWindow w : WINDOWS) {
-            w.x = clampD(w.x, 2, Math.max(2, screenW - w.w - 2));
-            w.y = clampD(w.y, 2, Math.max(2, screenH - w.h - 2));
+            w.x = clampD(w.x, 3, screenW - w.w - 3);
+            w.y = clampD(w.y, 3, screenH - w.h - 3);
         }
         updateSparks(now);
         lastFrameNs = now;
@@ -203,13 +224,10 @@ public final class LorePopupManager {
             return;
         }
         Screen current = Minecraft.getInstance().gui.screen();
+        if (sticky != null && sticky.owner != current) closeSticky();
         WINDOWS.removeIf(w -> {
             if (w.owner == current) {
                 return false;
-            }
-            if (w == sticky) {
-                sticky = null;
-                lockedForHoverSlot = false;
             }
             if (w == pressWindow) {
                 clearPress();
@@ -218,90 +236,149 @@ public final class LorePopupManager {
         });
     }
 
-    /** 每帧调用（有屏幕时）：悬停超过 0.5 秒就把物品描述固定成弹窗（位置贴在背包左侧）。 */
-    public static void hoverTick(AbstractContainerScreen<?> hs) {
-        if (Minecraft.getInstance().player == null) return;
-        if (hs != lastScreen) {
-            lastScreen = hs;
-            closeSticky();
-            hoverSlotId = -1;
-            dismissedSlotId = -1;
-        }
-        Slot slot = ((LoreContainerScreenAccessor) hs).ctt$getHoveredSlot();
-        if (slot == null || slot.getItem().isEmpty() || !hs.getMenu().getCarried().isEmpty()
-                || pressWindow != null || peekTopAt(scaledMouseX(), scaledMouseY()) != null) {
-            hoverSlotId = -1;
-            return;
-        }
-        long now = System.currentTimeMillis();
-        if (hoverSlotId != slot.index || !net.minecraft.world.item.ItemStack.matches(hoverStack, slot.getItem())) {
-            hoverSlotId = slot.index;
-            hoverStack = slot.getItem().copy();
-            hoverStartMs = now;
-            lockedForHoverSlot = false;
-        }
-        if (lockedForHoverSlot) {
-            return;
-        }
-        if (dismissedSlotId == slot.index && now - dismissedAtMs < RELOCK_GRACE_MS) {
-            return;
-        }
-        if (now - hoverStartMs < LOCK_MS) {
-            return;
-        }
-        lockTooltip(hs, slot);
-    }
-
-    public static boolean hidesTooltip(AbstractContainerScreen<?> screen, double x, double y) {
-        return sticky != null && sticky.owner == screen
-                && (lockedForHoverSlot && hoverSlotId >= 0 || peekTopAt(x, y) != null);
-    }
-
-    private static void lockTooltip(AbstractContainerScreen<?> hs, Slot slot) {
+    /** 在原版绘制物品提示的同一帧准备描述窗，并决定是否替换原版提示。 */
+    public static boolean hoverTick(AbstractContainerScreen<?> screen, Slot slot, double mx, double my) {
         Minecraft client = Minecraft.getInstance();
-        Font tr = client.font;
-        List<Component> lines = ((LoreContainerScreenAccessor) hs).ctt$getTooltip(slot.getItem());
-        if (lines.isEmpty()) {
-            return;
+        closeWindowsOfClosedScreens();
+        if (screen != lastScreen) {
+            lastScreen = screen;
+            clearHover();
         }
-        // 先量一侧能放多宽，再按这个上限去排版（超长描述自动换行），
-        // 这样描述窗几乎总能待在背包界面的左侧 —— 以前不换行，描述一长就宽过屏幕，
-        // 左边放不下只能整个挪到右边去，这就是「不是所有物品都在物品栏左侧」的原因。
-        LoreContainerScreenAccessor acc = (LoreContainerScreenAccessor) hs;
+        showHoverPreview = false;
+        // 左侧固定窗关闭前不生成其他物品预览，也不让原版提示盖过它。
+        if (sideTooltipPinned) {
+            clearHover();
+            return true;
+        }
+        if (client.player == null || !screen.getMenu().getCarried().isEmpty()) {
+            clearHover();
+            return false;
+        }
+        if (pressWindow != null || peekTopAt(mx, my) != null) {
+            clearHover();
+            return true;
+        }
+        if (slot == null || slot.getItem().isEmpty()) {
+            clearHover();
+            return false;
+        }
+        ItemStack item = slot.getItem();
+        if (sticky != null && pinnedSlotId == slot.index && ItemStack.matches(pinnedStack, item)) {
+            clearHover();
+            return true;
+        }
+
+        boolean atCursor = ModConfig.INSTANCE.loreTooltipAtCursor;
+        if (hoverSlotId != slot.index || hoverAtCursor != atCursor || !ItemStack.matches(hoverStack, item)) {
+            hoverSlotId = slot.index;
+            hoverStack = item.copy();
+            hoverAtCursor = atCursor;
+            hoverPreview = null;
+        }
+        hoverPreview = createTooltip(screen, item, mx, my, false);
+        showHoverPreview = hoverPreview != null;
+        if (!showHoverPreview) clearHover();
+        return showHoverPreview;
+    }
+
+    /** Alt 按下时用当前光标重新找物品格，避免快速移动时固定上一帧的物品。 */
+    public static boolean toggleTooltipPin(AbstractContainerScreen<?> screen) {
+        Minecraft client = Minecraft.getInstance();
+        closeWindowsOfClosedScreens();
+        if (client.player == null || pressWindow != null) return false;
+        // 左侧模式下，再按 Alt 只解除固定，不会直接换成鼠标下的另一件物品。
+        if (sideTooltipPinned) {
+            closeSticky();
+            return true;
+        }
+        if (!screen.getMenu().getCarried().isEmpty()) return false;
+        double mx = scaledMouseX(), my = scaledMouseY();
+        Slot slot = ((LoreContainerScreenAccessor) screen).ctt$getSlotAt(mx, my);
+        if (sticky != null && (slot == null || slot.getItem().isEmpty()
+                || pinnedSlotId == slot.index && ItemStack.matches(pinnedStack, slot.getItem())
+                || peekTopAt(mx, my) == sticky)) {
+            closeSticky();
+            return true;
+        }
+        if (slot == null || slot.getItem().isEmpty() || peekTopAt(mx, my) != null) return false;
+        ItemStack item = slot.getItem();
+        boolean sideMode = !ModConfig.INSTANCE.loreTooltipAtCursor;
+        boolean reuseSidePreview = sideMode && !hoverAtCursor
+                && showHoverPreview && hoverPreview != null && hoverPreview.owner == screen
+                && hoverSlotId == slot.index && ItemStack.matches(hoverStack, item);
+        // 左侧模式沿用当前预览窗的位置和大小，按 Alt 时窗口不会跳动。
+        PopupWindow window = reuseSidePreview ? hoverPreview : createTooltip(screen, item, mx, my, true);
+        if (window == null) return false;
+        pinTooltip(window, slot, sideMode);
+        clearHover();
+        return true;
+    }
+
+    private static PopupWindow createTooltip(AbstractContainerScreen<?> screen, ItemStack item,
+                                             double mx, double my, boolean pinned) {
+        Minecraft client = Minecraft.getInstance();
+        LoreContainerScreenAccessor acc = (LoreContainerScreenAccessor) screen;
         int screenW = client.getWindow().getGuiScaledWidth();
         int screenH = client.getWindow().getGuiScaledHeight();
         int gx = acc.tooltipLoreGuiX();
         int gy = acc.tooltipLoreGuiY();
         int gw = acc.tooltipLoreGuiWidth();
         int gh = acc.tooltipLoreGuiHeight();
-        int leftSpace = gx - 10;                       // 背包左边能用的宽度
-        int rightSpace = screenW - gx - gw - 10;       // 右边能用的宽度
+        int leftSpace = gx - 10;
+        int rightSpace = screenW - gx - gw - 10;
+        boolean atCursor = ModConfig.INSTANCE.loreTooltipAtCursor;
         boolean onLeft = leftSpace >= PopupWindow.MIN_W || rightSpace < PopupWindow.MIN_W;
-        int space = Math.max(onLeft ? leftSpace : rightSpace, PopupWindow.MIN_W);
-        int maxW = Math.min(Math.min(space, PopupWindow.MAX_W), Math.max(screenW - 8, PopupWindow.MIN_W));
-        PopupWindow w = PopupWindow.fromTooltip(lines, tr,
-                Component.translatable("tooltip_lore.hint.lock").getString(), maxW);
-        w.sticky = true;
-        w.owner = hs; // 关背包 / 按 ESC 时随界面一起收起
-        // 贴在背包界面的界面一侧（左边放不下才放右侧），不再跟着鼠标跑：
-        // 描述窗在一边、鼠标在另一边，互不遮挡，也彻底避开屏幕右下角的聊天栏。
-        double x = onLeft ? gx - w.w - 8 : gx + gw + 8;
-        double y = gy + (gh - w.h) / 2.0;
-        w.x = clampD(x, 2, Math.max(2, screenW - w.w - 2));
-        w.y = clampD(y, 2, Math.max(2, screenH - w.h - 2));
-        // 换物品时固定窗是「原地换内容」，不是新开的窗口：插回它原来那一层，
-        // 免得重新生成的固定窗跳到最上面，把玩家点开的详情窗压住（截图里就是这个毛病）。
-        int at = WINDOWS.size();
-        if (sticky != null) {
-            int old = WINDOWS.indexOf(sticky);
-            WINDOWS.remove(sticky);
-            if (old >= 0) {
-                at = Math.min(old, WINDOWS.size());
+        int space = atCursor ? Math.max((int) mx, screenW - (int) mx) - MOUSE_GAP_X - 4
+                : onLeft ? leftSpace : rightSpace;
+        int maxW = Math.min(PopupWindow.MAX_W, Math.max(PopupWindow.MIN_W, Math.min(space, screenW - 8)));
+        long revision = LoreRegistry.revision();
+        boolean advanced = client.options.advancedItemTooltips;
+        PopupWindow window = null;
+        if (!pinned && hoverPreview != null && maxW == previewWidth && revision == previewRevision
+                && advanced == previewAdvanced) {
+            window = hoverPreview;
+        }
+        if (window == null) {
+            List<Component> lines = acc.ctt$getTooltip(item);
+            if (lines.isEmpty()) return null;
+            String hint = Component.translatable(atCursor && pinned
+                    ? "tooltip_lore.hint.lock" : "tooltip_lore.hint.alt_pin").getString();
+            String pinnedHint = atCursor ? null : Component.translatable("tooltip_lore.hint.side_pinned").getString();
+            window = PopupWindow.fromTooltip(lines, client.font, hint, pinnedHint, maxW);
+            window.owner = screen;
+            if (!pinned) {
+                previewWidth = maxW;
+                previewRevision = revision;
+                previewAdvanced = advanced;
             }
         }
-        WINDOWS.add(at, w);
-        sticky = w;
-        lockedForHoverSlot = true;
+        if (atCursor) {
+            placeNearCursor(window, mx, my, screenW, screenH);
+        } else {
+            double x = onLeft ? gx - window.w - 8 : gx + gw + 8;
+            double y = gy + (gh - window.h) / 2.0;
+            window.x = clampD(x, 3, screenW - window.w - 3);
+            window.y = clampD(y, 3, screenH - window.h - 3);
+        }
+        return window;
+    }
+
+    private static void pinTooltip(PopupWindow window, Slot slot, boolean sideMode) {
+        int at = sticky == null ? 0 : WINDOWS.indexOf(sticky);
+        closeSticky();
+        if (sideMode) window.showPinnedTooltipHint();
+        WINDOWS.add(Math.max(0, at), window);
+        sticky = window;
+        sideTooltipPinned = sideMode;
+        pinnedSlotId = slot.index;
+        pinnedStack = slot.getItem().copy();
+    }
+
+    private static void clearHover() {
+        hoverSlotId = -1;
+        hoverStack = ItemStack.EMPTY;
+        hoverPreview = null;
+        showHoverPreview = false;
     }
 
     /**
@@ -333,30 +410,16 @@ public final class LorePopupManager {
         int maxW = Math.min(PopupWindow.MAX_W, Math.max(PopupWindow.MIN_W, Math.min(space, screenW - 8)));
         PopupWindow pw = PopupWindow.fromEntry(word, e.lines(), client.font, titleColor, maxW);
         pw.owner = client.gui.screen(); // 记住来源界面：聊天栏/背包/进度页面关了它也跟着收
-        // 跟着鼠标：出现在点击位置的右下方，光标不会压住标题；
-        // 右下放不下（贴屏幕边缘）就翻到左下 / 右上 / 左上
-        double x = mx + MOUSE_GAP_X;
-        double y = my + MOUSE_GAP_Y;
-        if (x + pw.w > screenW - 2) {
-            x = mx - pw.w - MOUSE_GAP_X;
-        }
-        if (y + pw.h > screenH - 2) {
-            y = my - pw.h - MOUSE_GAP_Y;
-        }
-        if (x < 2) {
-            x = 2;
-        }
-        if (y < 2) {
-            y = 2;
-        }
+        placeNearCursor(pw, mx, my, screenW, screenH);
+        double x = pw.x, y = pw.y;
         for (PopupWindow other : WINDOWS) {
             if (Math.abs(other.x - x) < 4 && Math.abs(other.y - y) < 4) {
                 x += 14;
                 y += 12;
             }
         }
-        pw.x = clampD(x, 2, screenW - pw.w - 2);
-        pw.y = clampD(y, 2, screenH - pw.h - 2);
+        pw.x = clampD(x, 3, screenW - pw.w - 3);
+        pw.y = clampD(y, 3, screenH - pw.h - 3);
         WINDOWS.add(pw); // 追加到末尾 = 最上层
         while (WINDOWS.size() > MAX_WINDOWS) {
             int idx = -1;
@@ -370,34 +433,31 @@ public final class LorePopupManager {
         }
     }
 
-    /** 点空白：关闭全部弹窗（含固定描述），并在短暂宽限期内不自动重锁。 */
+    /** 关闭全部弹窗（含固定描述）。 */
     public static void closeAll() {
-        if (sticky != null) {
-            if (hoverSlotId >= 0) {
-                dismissedSlotId = hoverSlotId;
-                dismissedAtMs = System.currentTimeMillis();
-            }
-            sticky = null;
-            lockedForHoverSlot = false;
-        }
+        closeSticky();
         WINDOWS.clear();
+        clearHover();
         clearPress();
     }
 
-    /** 只收起固定描述窗（例如切换屏幕 / 关闭背包时），保留玩家手动点开的词条窗。 */
+    /** 只收起固定描述窗，保留玩家手动点开的词条窗。 */
     private static void closeSticky() {
-        if (sticky != null) {
-            WINDOWS.remove(sticky);
-            sticky = null;
-            lockedForHoverSlot = false;
-        }
+        if (sticky == null) return;
+        if (pressWindow == sticky) clearPress();
+        WINDOWS.remove(sticky);
+        sticky = null;
+        sideTooltipPinned = false;
+        pinnedSlotId = -1;
+        pinnedStack = ItemStack.EMPTY;
     }
 
     public static boolean release(double x, double y) {
-        if (LoreAdvancements.release()) return true;
+        if (LoreAdvancements.release(x, y)) return true;
         if (pressWindow == null) return false;
         PopupWindow.Seg hit = pressWindow.segAt(x, y);
-        boolean open = !dragging && System.nanoTime() - pressStartNs < DRAG_NS && hit != null && hit == pressSeg;
+        boolean open = pressWindow.owner == Minecraft.getInstance().gui.screen()
+                && !dragging && !movedFrom(x, y, pressX, pressY) && hit != null && hit == pressSeg;
         clearPress();
         if (open) openEntry(hit.word, x, y, hit.color);
         return true;
@@ -414,8 +474,7 @@ public final class LorePopupManager {
         closeWindowsOfClosedScreens();
         if (lastScreen != client.gui.screen()) {
             lastScreen = null;
-            hoverSlotId = dismissedSlotId = -1;
-            hoverStack = net.minecraft.world.item.ItemStack.EMPTY;
+            clearHover();
         }
         if (client.level == null) {
             closeAll();
@@ -467,6 +526,15 @@ public final class LorePopupManager {
             int y = (int) s.y;
             ctx.fill(x, y, x + 2, y + 2, color);
         }
+    }
+
+    private static void placeNearCursor(PopupWindow window, double mx, double my, int screenW, int screenH) {
+        double x = mx + MOUSE_GAP_X;
+        double y = my + MOUSE_GAP_Y;
+        if (x + window.w > screenW - 3) x = mx - window.w - MOUSE_GAP_X;
+        if (y + window.h > screenH - 3) y = my - window.h - MOUSE_GAP_Y;
+        window.x = clampD(x, 3, screenW - window.w - 3);
+        window.y = clampD(y, 3, screenH - window.h - 3);
     }
 
     private static double clampD(double v, double lo, double hi) {

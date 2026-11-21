@@ -20,12 +20,12 @@ com.ctt.healthdisplay
 ├── health/        数据模型：HealthData、MobHealthData、StatsData
 ├── hud/           渲染器与屏幕：血条、属性、怪物条、队友世界渲染、
 │                  伤害面板、统计表、弓箭预览、盾牌冷却、关卡名注册表
-├── mixin/         客户端 Mixin（BossBar、计分板、动作栏、标题字幕、Lore 界面等）
+├── mixin/         客户端 Mixin（BossBar、计分板、动作栏、标题字幕、Lore 界面与键盘等）
 ├── network/       S2C payload 定义与 codec
 └── server/        服务端统计、伤害归属、击杀 / 承伤记录、广播、命令、
     ├── command/   广播开关命令
     ├── filter/    伤害过滤流水线、武器 P95 注册表、滚动窗口
-    └── mixin/     服务端计分板 Mixin
+    └── mixin/     服务端计分板 Mixin、文字显示实体背景色访问器
 ```
 
 ## 数据通路
@@ -55,6 +55,12 @@ L9 未归属
 
 ### 5. 关卡分桶
 `StageBoundaryDispatcher` 依据计分板变化划分关卡边界；`StageKey`（种类 + 关卡号）作为伤害统计、战绩切片的归集键，`StageNameRegistry` 读取 `stage_name_map.json` 输出本地化关卡名。
+
+### 6. Lore 物品描述弹窗
+- `LorePopupManager` 管理悬浮预览、固定窗口、嵌套开窗与拖动状态机，最多同时 6 个窗口，新窗口追加到最上层。
+- 背包界面按 `Alt`（`LoreKeyboardMixin` 注入 `KeyboardHandler.keyPress`）调用 `toggleTooltipPin`：固定当前槽位物品描述，再按一次解除；固定状态记住槽位与物品堆叠。
+- 窗口位置由 `loreTooltipAtCursor` 控制：背包左侧或跟随鼠标；词条点击可嵌套开窗，点空白 / ESC 关闭。
+- 服务端 `TextDisplayBackgroundAccessor` 通过 `@Invoker` 读取文字显示实体背景色，`DamageProbe` 据此识别治疗粒子，辅助伤害 / 治疗归类。
 
 ## 持久化
 

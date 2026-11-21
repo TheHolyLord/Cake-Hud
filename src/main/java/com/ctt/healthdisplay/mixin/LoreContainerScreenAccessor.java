@@ -10,6 +10,9 @@ public interface LoreContainerScreenAccessor {
     @Accessor("hoveredSlot")
     Slot ctt$getHoveredSlot();
 
+    @org.spongepowered.asm.mixin.gen.Invoker("getHoveredSlot")
+    Slot ctt$getSlotAt(double mouseX, double mouseY);
+
     @Accessor("leftPos") int tooltipLoreGuiX();
     @Accessor("topPos") int tooltipLoreGuiY();
     @Accessor("imageWidth") int tooltipLoreGuiWidth();

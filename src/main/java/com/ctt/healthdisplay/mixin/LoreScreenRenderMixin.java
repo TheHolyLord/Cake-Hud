@@ -15,6 +15,7 @@ public abstract class LoreScreenRenderMixin {
     @Inject(method = "extractRenderState", at = @At("HEAD"))
     private void ctt$beginLoreFrame(DeltaTracker delta, boolean hud, boolean screens, CallbackInfo ci) {
         Gui gui = (Gui) (Object) this;
+        LorePopupManager.startFrame();
         LoreAdvancements.startFrame(gui.screen());
     }
 

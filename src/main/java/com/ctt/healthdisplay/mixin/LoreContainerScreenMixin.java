@@ -14,8 +14,8 @@ public abstract class LoreContainerScreenMixin {
     @Inject(method = "extractTooltip", at = @At("HEAD"), cancellable = true)
     private void ctt$trackTooltip(GuiGraphicsExtractor context, int mouseX, int mouseY, CallbackInfo ci) {
         AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) (Object) this;
-        LorePopupManager.hoverTick(screen);
-        if (LorePopupManager.hidesTooltip(screen, mouseX, mouseY)) {
+        var slot = ((LoreContainerScreenAccessor) screen).ctt$getHoveredSlot();
+        if (LorePopupManager.hoverTick(screen, slot, LorePopupManager.scaledMouseX(), LorePopupManager.scaledMouseY())) {
             ci.cancel();
         }
     }

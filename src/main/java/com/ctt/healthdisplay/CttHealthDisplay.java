@@ -296,7 +296,11 @@ public class CttHealthDisplay implements ClientModInitializer {
             if (hudEnabled) {
                 HealthBarRenderer.render(context, tickCounter, healthData, statsData);
             }
-            StatsRenderer.render(context, statsData);
+            var client = net.minecraft.client.Minecraft.getInstance();
+            if (ModConfig.INSTANCE.showStatsOutsideInventory && !client.gui.hud.isHidden()
+                    && !StatsRenderer.isPlayerInventory(client.gui.screen())) {
+                StatsRenderer.render(context, statsData);
+            }
             // v6.3.1 · 伤害分配面板：HUD 只读绘制。
             //   - 专属 DamagePanelScreen 自己会画，不要重复。
             //   - 其他 Screen（聊天 T / 背包 E / 暂停 ESC 等）打开时继续画，
@@ -366,6 +370,13 @@ public class CttHealthDisplay implements ClientModInitializer {
         //   DamagePanelScreen 本身由自己处理，跳过。
         // v6.6.7 · 同时支持拖拽：点中标题栏 (非按钮区) 开始拖；松开时结束。
         ScreenEvents.AFTER_INIT.register((mc, screen, scaledWidth, scaledHeight) -> {
+            if (StatsRenderer.isPlayerInventory(screen)) {
+                ScreenEvents.afterExtract(screen).register((sc, context, mouseX, mouseY, delta) -> {
+                    if (!ModConfig.INSTANCE.showStatsInInventory || HudRenderGate.shouldSuppressModHud(statsData)) return;
+                    context.nextStratum();
+                    StatsRenderer.render(context, statsData);
+                });
+            }
             if (screen instanceof DamagePanelScreen) return;
             ScreenMouseEvents.allowMouseClick(screen).register((sc, ev) -> {
                 if (ev.button() != 0) return true;
@@ -430,11 +441,13 @@ public class CttHealthDisplay implements ClientModInitializer {
             }
             if (toggleStatsKey.consumeClick()) {
                 ModConfig cfg = ModConfig.INSTANCE;
-                cfg.statsVisibility = (cfg.statsVisibility + 1) % 3;
+                cfg.showStatsOutsideInventory = !cfg.showStatsOutsideInventory;
                 cfg.save();
-                String[] labels = {"\u5e38\u663e", "\u80cc\u5305\u663e\u793a", "\u9690\u85cf"};
                 if (client.player != null) {
-                    client.gui.hud.setOverlayMessage(Component.literal("CTT \u5c5e\u6027\u680f: " + labels[cfg.statsVisibility]), false);
+                    var state = Component.translatable(cfg.showStatsOutsideInventory
+                            ? "ctt-health-display.config.value.on" : "ctt-health-display.config.value.off");
+                    client.gui.hud.setOverlayMessage(Component.translatable(
+                            "ctt-health-display.config.option.stats_outside_inventory", state), false);
                 }
             }
             if (toggleBossBarsKey.consumeClick()) {

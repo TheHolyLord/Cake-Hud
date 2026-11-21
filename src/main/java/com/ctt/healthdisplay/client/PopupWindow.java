@@ -50,34 +50,46 @@ public final class PopupWindow {
     public double x, y;
     public int w, h;
     public int minH;       // 高度下限（进度窗要留出图标那一格）
-    public boolean sticky; // 由悬停锁定生成的“物品描述固定窗”
     public Screen owner;   // 来源界面：null = 没有屏幕时打开；界面关闭则窗口一起关闭
     // ── 进度描述窗专用（普通详情窗不用管）──
     public ItemStack icon;          // 左上图标格里画的物品
     public int accent = 0xFFFFFF;   // 图标格边框色（按任务/挑战/目标区分）
     public int progressPct = -1;    // 完成百分比 0~100，-1 = 没有进度条
     public final List<Seg> segs = new ArrayList<>();
+    private int tooltipHintStart;
+    private List<Seg> pinnedTooltipHint;
 
     // ───────────────────────────── 构建入口 ─────────────────────────────
 
-    /**
-     * 从物品 Tooltip 行构建固定描述窗：每个片段保留原文自己的颜色。
-     * maxW = 这个窗口允许的最宽宽度，超过就自动换行（见 WindowManager 里怎么算这个值）。
-     */
-    public static PopupWindow fromTooltip(List<Component> lines, Font tr, String hint, int maxW) {
+    /** 从物品提示构建描述窗。左侧模式同时预留两种提示的空间，固定时无需重新排版。 */
+    public static PopupWindow fromTooltip(List<Component> lines, Font tr, String hint, String pinnedHint, int maxW) {
         Layout lo = new Layout(tr, maxW);
         for (Component line : lines) {
             lo.startLine();
             lo.appendStyled(line, Style.EMPTY, 0xFFFFFF);
             lo.endLine();
         }
-        if (hint != null && !hint.isEmpty()) {
-            lo.gap(2);
-            lo.startLine();
-            lo.raw(hint, 0x808080, false);
-            lo.endLine();
+        int hintStart = lo.pw.segs.size();
+        int hintY = lo.y;
+        lo.tooltipHint(hint, 0x808080);
+        PopupWindow window = lo.finish();
+        if (pinnedHint != null) {
+            Layout pinnedLayout = new Layout(tr, maxW);
+            pinnedLayout.y = hintY;
+            pinnedLayout.tooltipHint(pinnedHint, 0xFFD75E);
+            PopupWindow pinnedFooter = pinnedLayout.finish();
+            window.tooltipHintStart = hintStart;
+            window.pinnedTooltipHint = pinnedFooter.segs;
+            window.w = Math.max(window.w, pinnedFooter.w);
+            window.h = Math.max(window.h, pinnedFooter.h);
         }
-        return lo.finish();
+        return window;
+    }
+
+    void showPinnedTooltipHint() {
+        if (pinnedTooltipHint == null) return;
+        segs.subList(tooltipHintStart, segs.size()).clear();
+        segs.addAll(pinnedTooltipHint);
     }
 
     /**
@@ -203,6 +215,14 @@ public final class PopupWindow {
             bottom = Math.max(bottom, y + LINE_H);
             y += LINE_H;
             x = PAD_X + currentIndent();
+        }
+
+        void tooltipHint(String hint, int color) {
+            if (hint == null || hint.isEmpty()) return;
+            gap(2);
+            startLine();
+            raw(hint, color, false);
+            endLine();
         }
 
         /** 行间额外留白（提示行与正文之间那点空隙）。只在行首调用。 */

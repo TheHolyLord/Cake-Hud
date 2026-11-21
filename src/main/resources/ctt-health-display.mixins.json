@@ -20,6 +20,7 @@
     "LoreContainerScreenMixin",
     "LoreScreenRenderMixin",
     "LoreInputMixin",
+    "LoreKeyboardMixin",
     "LoreChatMessageMixin",
     "LoreChatClickMixin",
     "LoreAdvancementTabMixin",
