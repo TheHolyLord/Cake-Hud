@@ -102,7 +102,8 @@ public record MobHealthPayload(
         int maxMana,
         int stamina,
         int maxStamina,
-        byte knightResourceMode
+        byte knightResourceMode,
+        List<UUID> suppressed
 ) implements CustomPacketPayload {
 
     /** 服务端骑士资源模式：0=未提供/非骑士，1=体力，2=法力。 */
@@ -110,23 +111,23 @@ public record MobHealthPayload(
     public static final byte KNIGHT_MODE_STAMINA = 1;
     public static final byte KNIGHT_MODE_MANA = 2;
 
-    public static final byte CURRENT_VERSION = 7;
+    public static final byte CURRENT_VERSION = 8;
 
     /** v4 前的兼容构造：玩家自身字段缺省 0（旧测试代码 / 空包路径仍可用）。 */
     public MobHealthPayload(byte version, List<Entry> entries) {
-        this(version, entries, 0, 0, 0, 0, 0, 0, KNIGHT_MODE_NONE);
+        this(version, entries, 0, 0, 0, 0, 0, 0, KNIGHT_MODE_NONE, List.of());
     }
 
     /** v5 前的兼容构造：只带碎心数。 */
     public MobHealthPayload(byte version, List<Entry> entries, int crackedHearts) {
-        this(version, entries, crackedHearts, 0, 0, 0, 0, 0, KNIGHT_MODE_NONE);
+        this(version, entries, crackedHearts, 0, 0, 0, 0, 0, KNIGHT_MODE_NONE, List.of());
     }
 
     /** v7 前的兼容构造：带玩家属性，但不带服务端骑士模式。 */
     public MobHealthPayload(byte version, List<Entry> entries, int crackedHearts, int pinkHearts,
                             int mana, int maxMana, int stamina, int maxStamina) {
         this(version, entries, crackedHearts, pinkHearts, mana, maxMana, stamina, maxStamina,
-                KNIGHT_MODE_NONE);
+                KNIGHT_MODE_NONE, List.of());
     }
 
     public static final CustomPacketPayload.Type<MobHealthPayload> ID = new CustomPacketPayload.Type<>(
@@ -148,7 +149,11 @@ public record MobHealthPayload(
             boolean targetted,
             int defence,
             byte armorType,
-            int armorValue
+            int armorValue,
+            int maxSoulHearts,
+            int maxBlackHearts,
+            int maxBlueHearts,
+            int[] armour
     ) {}
 
     public static final StreamCodec<RegistryFriendlyByteBuf, MobHealthPayload> CODEC = StreamCodec.of(
@@ -190,6 +195,20 @@ public record MobHealthPayload(
             buf.writeVarInt(e.defence);
             buf.writeByte(e.armorType);
             buf.writeVarInt(e.armorValue);
+            if (Byte.toUnsignedInt(p.version) >= 8) {
+                buf.writeVarInt(Math.max(0, e.maxSoulHearts));
+                buf.writeVarInt(Math.max(0, e.maxBlackHearts));
+                buf.writeVarInt(Math.max(0, e.maxBlueHearts));
+                int[] armour = e.armour == null ? new int[0] : e.armour;
+                buf.writeByte(Math.min(16, armour.length));
+                for (int v : armour) buf.writeVarInt(v);
+            }
+        }
+        // v8：要抑制显示的实体（NPC 布景），客户端据此不画 HUD、但摘掉原版 below_name 分数。
+        if (Byte.toUnsignedInt(p.version) >= 8) {
+            List<UUID> hidden = p.suppressed == null ? List.of() : p.suppressed;
+            buf.writeVarInt(hidden.size());
+            for (UUID id : hidden) buf.writeUUID(id);
         }
     }
 
@@ -200,7 +219,7 @@ public record MobHealthPayload(
             // 未来版本：drain 丢弃，UI 沿用上一帧
             buf.skipBytes(buf.readableBytes());
             return new MobHealthPayload(ver, Collections.emptyList(), 0, 0, 0, 0, 0, 0,
-                    KNIGHT_MODE_NONE);
+                    KNIGHT_MODE_NONE, List.of());
         }
         // v4：碎心数在版本号之后、条目数之前；旧包读不到就保持 0。
         int crackedHearts = verU >= 4 ? buf.readVarInt() : 0;
@@ -219,7 +238,7 @@ public record MobHealthPayload(
         if (n < 0 || n > 256) {
             buf.skipBytes(buf.readableBytes());
             return new MobHealthPayload(ver, Collections.emptyList(), crackedHearts, pinkHearts,
-                    mana, maxMana, stamina, maxStamina, knightResourceMode);
+                    mana, maxMana, stamina, maxStamina, knightResourceMode, List.of());
         }
         List<Entry> list = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
@@ -235,9 +254,20 @@ public record MobHealthPayload(
                 int defence = buf.readVarInt();
                 byte armorType = buf.readByte();
                 int armorValue = buf.readVarInt();
+                int maxSoulHearts = 0, maxBlackHearts = 0, maxBlueHearts = 0;
+                int[] armour = new int[0];
+                if (verU >= 8) {
+                    maxSoulHearts = buf.readVarInt();
+                    maxBlackHearts = buf.readVarInt();
+                    maxBlueHearts = buf.readVarInt();
+                    int len = Math.max(0, Math.min(16, buf.readByte() & 0xFF));
+                    armour = new int[len];
+                    for (int k = 0; k < len; k++) armour[k] = buf.readVarInt();
+                }
                 list.add(new Entry(uuid, nameText, hp, maxHp,
                         soulHearts, blackHearts, blueHearts, targetted,
-                        defence, armorType, armorValue));
+                        defence, armorType, armorValue,
+                        maxSoulHearts, maxBlackHearts, maxBlueHearts, armour));
             } else {
                 // ver == 1 兼容：旧 schema 读完转换。
                 // v1 schema: uuid, shortString name, shortString suffix, varInt nameColor,
@@ -250,8 +280,14 @@ public record MobHealthPayload(
                 int maxHp = buf.readVarInt();
                 boolean targetted = buf.readBoolean();
                 Component nameText = literalWithColor(name, nameColor);
-                list.add(new Entry(uuid, nameText, hp, maxHp, 0, 0, 0, targetted, 0, (byte) 0, 0));
+                list.add(new Entry(uuid, nameText, hp, maxHp, 0, 0, 0, targetted, 0, (byte) 0, 0,
+                        0, 0, 0, new int[0]));
             }
+        }
+        List<UUID> suppressed = new ArrayList<>();
+        if (verU >= 8) {
+            int hiddenCount = Math.max(0, Math.min(256, buf.readVarInt()));
+            for (int i = 0; i < hiddenCount; i++) suppressed.add(buf.readUUID());
         }
         // 末尾残字节保险阀（同 StatsSnapshotPayload 注释）：未来仅追加的末尾标量字段
         // 忘记 bump version 时，drain 一下不至于 codec 报 "buffer not fully consumed" 踢线
@@ -259,7 +295,8 @@ public record MobHealthPayload(
             buf.skipBytes(buf.readableBytes());
         }
         return new MobHealthPayload(ver, Collections.unmodifiableList(list), crackedHearts, pinkHearts,
-                mana, maxMana, stamina, maxStamina, knightResourceMode);
+                mana, maxMana, stamina, maxStamina, knightResourceMode,
+                Collections.unmodifiableList(suppressed));
     }
 
     /** v1 兼容：把"裸字符串名 + ARGB 颜色"包成最简 Component，颜色 0 时不强制覆盖默认样式。 */

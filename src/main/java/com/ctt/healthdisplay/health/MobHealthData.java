@@ -45,6 +45,13 @@ public class MobHealthData {
      */
     public boolean percentOnly;
 
+    /** v8：MaxSoulHearts / MaxBlackHearts / MaxBlueHearts（分层条比例用）。 */
+    public int maxSoulHearts;
+    public int maxBlackHearts;
+    public int maxBlueHearts;
+    /** v8：7 档元素护甲（Fire/Ice/Dark/Light/True/Water/Electric）。 */
+    public int[] armour = new int[0];
+
     public MobHealthData(Component nameText, Component suffixText, int hp, int maxHP, long tick) {
         this.nameText = nameText != null ? nameText : Component.empty();
         this.suffixText = suffixText != null ? suffixText : Component.empty();

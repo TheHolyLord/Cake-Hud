@@ -200,12 +200,18 @@ public final class MobHealthBroadcaster {
         AABB box = AABB.ofSize(pos, boxSize, boxSize, boxSize);
 
         List<Candidate> candidates = new ArrayList<>();
+        List<java.util.UUID> suppressed = new ArrayList<>();
         for (Entity e : world.getEntities((Entity) null, box, ent ->
                 ent instanceof LivingEntity
                         && !(ent instanceof Player)
                         && !(ent instanceof ArmorStand)
                         && ent.isAlive()
                         && !ent.isRemoved())) {
+            // v8：NPC（布景角色）有分数但不是敌人 —— 不进血条列表，改为放进 suppressed。
+            if (e.entityTags().contains("NPC")) {
+                if (suppressed.size() < 32) suppressed.add(e.getUUID());
+                continue;
+            }
             int hp = ScoreboardReader.readOrZero(sb, "AllHearts", e);
             if (hp <= 0) hp = ScoreboardReader.readOrZero(sb, "RedHearts", e);
             int maxHp = ScoreboardReader.readOrZero(sb, "MaxHP", e);
@@ -263,6 +269,16 @@ public final class MobHealthBroadcaster {
                 armorValue = ScoreboardReader.readOrZero(sb, ARMOR_OBJECTIVES[armorType], statHolder);
             }
 
+            // v8：整组 MaxSoul/MaxBlack/MaxBlue（客户端画「按当前心类分层」的比例）
+            int maxSoulHearts = ScoreboardReader.readOrZero(sb, "MaxSoulHearts", statHolder);
+            int maxBlackHearts = ScoreboardReader.readOrZero(sb, "MaxBlackHearts", statHolder);
+            int maxBlueHearts = ScoreboardReader.readOrZero(sb, "MaxBlueHearts", statHolder);
+            // v8：7 档元素护甲全发（旧客户端仍用 armorType/armorValue 当前一档）
+            int[] armour = new int[7];
+            for (int i = 0; i < 7; i++) {
+                armour[i] = ScoreboardReader.readOrZero(sb, ARMOR_OBJECTIVES[i + 1], statHolder);
+            }
+
             boolean tgt = c.entity.getUUID().equals(nearestUuid);
             entries.add(new MobHealthPayload.Entry(
                     c.entity.getUUID(),
@@ -270,7 +286,8 @@ public final class MobHealthBroadcaster {
                     displayHp, displayMaxHp,
                     soulHearts, blackHearts, blueHearts,
                     tgt,
-                    defence, armorType, armorValue
+                    defence, armorType, armorValue,
+                    maxSoulHearts, maxBlackHearts, maxBlueHearts, armour
             ));
         }
 
@@ -289,7 +306,8 @@ public final class MobHealthBroadcaster {
         LAST_PLAYER_STATS.put(player.getUUID(), playerStats);
 
         MobHealthPayload payload = new MobHealthPayload(MobHealthPayload.CURRENT_VERSION, entries,
-                crackedHearts, pinkHearts, mana, maxMana, stamina, maxStamina, knightResourceMode);
+                crackedHearts, pinkHearts, mana, maxMana, stamina, maxStamina, knightResourceMode,
+                List.copyOf(suppressed));
         try {
             ServerPlayNetworking.send(player, payload);
             LAST_PUSH_ROUND.put(player.getUUID(), pushRound);
@@ -324,7 +342,7 @@ public final class MobHealthBroadcaster {
         try {
             ServerPlayNetworking.send(player, new MobHealthPayload(MobHealthPayload.CURRENT_VERSION,
                     Collections.emptyList(), stats[0], stats[1], stats[2], stats[3], stats[4], stats[5],
-                    (byte) stats[6]));
+                    (byte) stats[6], List.of()));
             LAST_PUSH_ROUND.put(player.getUUID(), pushRound);
         } catch (Throwable ignored) {
             // 空包失败无副作用 — 下次 4 Hz 还会重试

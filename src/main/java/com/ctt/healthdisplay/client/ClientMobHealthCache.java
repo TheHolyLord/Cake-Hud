@@ -70,6 +70,14 @@ public final class ClientMobHealthCache {
 
     private ClientMobHealthCache() {}
 
+    /** v8：服务端要求「别画 HUD」（NPC 布景）的实体 UUID。 */
+    private static java.util.Set<UUID> suppressed = Collections.emptySet();
+
+    /** 该实体是否被服务端标记为抑制显示。 */
+    public static boolean isSuppressed(UUID uuid) {
+        return uuid != null && suppressed.contains(uuid);
+    }
+
     public static void onPayload(MobHealthPayload payload) {
         if (payload == null) return;
         Map<UUID, MobHealthData> map = new HashMap<>(Math.max(16, payload.entries().size() * 2));
@@ -83,9 +91,18 @@ public final class ClientMobHealthCache {
             d.blackHearts = e.blackHearts();
             d.blueHearts = e.blueHearts();
             d.targetted = e.targetted();
+            d.maxSoulHearts = e.maxSoulHearts();
+            d.maxBlackHearts = e.maxBlackHearts();
+            d.maxBlueHearts = e.maxBlueHearts();
+            d.armour = e.armour();
             map.put(e.uuid(), d);
         }
         snapshot = Collections.unmodifiableMap(map);
+        java.util.Set<UUID> hidden = new java.util.HashSet<>();
+        if (payload.suppressed() != null) {
+            for (UUID id : payload.suppressed()) if (id != null) hidden.add(id);
+        }
+        suppressed = Collections.unmodifiableSet(hidden);
         crackedHeartsScore = payload.crackedHearts();
         playerMana = Math.max(0, payload.mana());
         playerMaxMana = Math.max(0, payload.maxMana());
