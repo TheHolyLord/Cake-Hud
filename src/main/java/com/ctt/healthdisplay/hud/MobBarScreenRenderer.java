@@ -339,8 +339,14 @@ public final class MobBarScreenRenderer {
         //    四舍五入成整数 GUI 像素（1 GUI 像素 = 2~3 屏幕像素），移动时血条一跳一跳，
         //    看起来就是"跟着屏幕晃"。另外彻底删掉 outline 边框：该 API 的第 3、4 参是
         //    宽高而非右下角坐标，旧调用传了绝对坐标，边框被拉成横跨全屏的黑线（用户截图）。
-        int halfOld = Math.max(HALF_W_MIN_I,
-                (int) Math.ceil(font.width(hpText) * (TEXT_WORLD_PER_PX / (2.0 * S))));
+        int halfOld;
+        if (forkStyle) {
+            int width = Math.max(50, Math.min(150, ModConfig.INSTANCE.mobBarHalfWidth * 2));
+            halfOld = width / 2;
+        } else {
+            halfOld = Math.max(HALF_W_MIN_I,
+                    (int) Math.ceil(font.width(hpText) * (TEXT_WORLD_PER_PX / (2.0 * S))));
+        }
         var pose = context.pose();
         pose.pushMatrix();
         pose.translate((float) gx, (float) gy);
