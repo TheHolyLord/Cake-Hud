@@ -51,6 +51,10 @@ public class MobHealthData {
     public int maxBlueHearts;
     /** v8：7 档元素护甲（Fire/Ice/Dark/Light/True/Water/Electric）。 */
     public int[] armour = new int[0];
+    /** 本 fork 移植：🛡 防御值（payload 的 defence；纯客户端为 0，渲染端回落到 bossbar 后缀）。 */
+    public int defence;
+    /** 本 fork 移植：碎心 / 粉心（payload 里 cracked；正数碎心，负数粉心）。 */
+    public int crackedHearts;
 
     public MobHealthData(Component nameText, Component suffixText, int hp, int maxHP, long tick) {
         this.nameText = nameText != null ? nameText : Component.empty();

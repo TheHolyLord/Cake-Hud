@@ -95,6 +95,7 @@ public final class ClientMobHealthCache {
             d.maxBlackHearts = e.maxBlackHearts();
             d.maxBlueHearts = e.maxBlueHearts();
             d.armour = e.armour();
+            d.defence = e.defence();
             map.put(e.uuid(), d);
         }
         snapshot = Collections.unmodifiableMap(map);

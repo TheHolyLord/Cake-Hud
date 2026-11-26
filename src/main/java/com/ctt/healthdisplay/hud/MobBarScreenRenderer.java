@@ -272,6 +272,12 @@ public final class MobBarScreenRenderer {
         ts = Math.max(0.5, Math.min(6.0, ts));       // 远到糊/近到爆时钳制可读性
         if (BAR_H * unit < 0.75) return;             // 小到画不出：整组不画（旧版此时也≈不可见）
 
+        // fork 风格（hudStyle = 1）：整组交给 drawFork 按 fork 的 HudLayout 逐像素复刻。
+        if (cfg.hudStyle == 1) {
+            drawFork(context, font, p, cfg, unit);
+            return;
+        }
+
         double gx = p.gx;
         double gy = p.gy;
 
@@ -280,34 +286,13 @@ public final class MobBarScreenRenderer {
                 MobArmorCollector.currentWithHearts(p.dataUuid, data.soulHearts, data.blackHearts, data.blueHearts);
         if (segs.size() > 12) segs = segs.subList(0, 12);
         int armorRows = (segs.size() + 3) / 4;       // 0..3
-
-        // 本 fork 风格：hp 带 ❤ 前缀，并额外画一行「魂/黑/蓝心数量」。
-        boolean forkStyle = ModConfig.INSTANCE.hudStyle == 1;
-        java.util.List<String> forkRows = new java.util.ArrayList<>();
-        if (forkStyle) {
-            if (data.soulHearts > 0) forkRows.add("\uD83D\uDC9B " + data.soulHearts);
-            if (data.blackHearts > 0) forkRows.add("\uD83D\uDDA4 " + data.blackHearts);
-            if (data.blueHearts > 0) forkRows.add("\uD83D\uDC99 " + data.blueHearts);
-            for (MobArmorCollector.Segment seg : segs) {
-                if (seg.text != null && seg.text.startsWith("\uD83D\uDEE1")) {
-                    forkRows.add(seg.text);
-                    break;
-                }
-            }
-            armorRows = 0;
-        }
-        int extraRows = forkRows.size();
-        int totalRows = armorRows + extraRows;
+        int totalRows = armorRows;
 
         // v8.6.0 · 纯客户端兜底条目只有百分比（"73%"）；有绝对值的条目维持 "hp/maxHP"。
-        String hpText = (forkStyle ? "\u2764 " : "")
-                + (data.percentOnly ? data.hp + "%" : data.hp + "/" + data.maxHP);
+        String hpText = data.percentOnly ? data.hp + "%" : data.hp + "/" + data.maxHP;
         int pct = data.getPercent();
         // 不透明填充；非"当前锁定目标"靠压暗 RGB（而非降 alpha）区分
         int dim = data.targetted ? 0xFF : 0xB3;
-
-        // 血条宽度 = 血量数字文本宽度（与旧版同一公式；v8.5.6 起在"旧像素"系里算，
-        // 见下面血条绘制段）
 
         // 1) 名字（最上方，居中）
         double nameY = NUM_Y - ROW_STEP * totalRows - 11.0;
@@ -335,27 +320,13 @@ public final class MobBarScreenRenderer {
 
         // 3) 血条：永远红心色单色（v8.5.5 起不再按魂/黑/蓝分层、不再彩虹溢出）。
         //    v8.5.6：放进浮点 pose 子坐标系画——translate 用浮点屏幕坐标、scale 用浮点缩放，
-        //    fill 的整数坐标是"旧像素"系，经矩阵变换后边缘是亚像素精度。旧版把矩形四角
-        //    四舍五入成整数 GUI 像素（1 GUI 像素 = 2~3 屏幕像素），移动时血条一跳一跳，
-        //    看起来就是"跟着屏幕晃"。另外彻底删掉 outline 边框：该 API 的第 3、4 参是
-        //    宽高而非右下角坐标，旧调用传了绝对坐标，边框被拉成横跨全屏的黑线（用户截图）。
-        int halfOld;
-        if (forkStyle) {
-            int width = Math.max(50, Math.min(150, ModConfig.INSTANCE.mobBarHalfWidth * 2));
-            halfOld = width / 2;
-        } else {
-            halfOld = Math.max(HALF_W_MIN_I,
-                    (int) Math.ceil(font.width(hpText) * (TEXT_WORLD_PER_PX / (2.0 * S))));
-        }
+        //    fill 的整数坐标是"旧像素"系，经矩阵变换后边缘是亚像素精度。
+        int halfOld = Math.max(HALF_W_MIN_I,
+                (int) Math.ceil(font.width(hpText) * (TEXT_WORLD_PER_PX / (2.0 * S))));
         var pose = context.pose();
         pose.pushMatrix();
         pose.translate((float) gx, (float) gy);
         pose.scale((float) unit, (float) unit);
-        if (forkStyle) {
-            // 本 fork 风格：条外加 1px 深色边框（我们 fork 的条是描边的）
-            context.fill(-halfOld - 1, (int) BAR_TOP - 1, halfOld + 1, (int) (BAR_TOP + BAR_H) + 1,
-                    0xB0000000);
-        }
         context.fill(-halfOld, (int) BAR_TOP, halfOld, (int) (BAR_TOP + BAR_H),
                 withAlpha(EMPTY_FILL, ModConfig.INSTANCE.mobBarOpacity));
         int fillOld = (int) Math.round(2.0 * halfOld * pct / 100.0);
@@ -367,6 +338,185 @@ public final class MobBarScreenRenderer {
 
         // 4) 血量数字：血条上方居中（左=所有心总量，右=红心上限）
         drawScaledText(context, font, hpText, gx, gy + NUM_Y * unit, ts, true, TEXT_WHITE);
+    }
+
+    // ── fork 风格（hudStyle = 1） ──
+
+    /**
+     * 「CTT HUD - Fork」的整组头顶 UI，逐像素复刻到屏幕空间。
+     *
+     * <p>坐标系与 fork 完全一致：1 布局像素 = fork 的「原版名牌像素」，由 pose 统一缩放
+     * （{@code unit}）。所以文字 / 心型行 / 血条三者的相对大小与 fork 完全相同
+     * （上游原风格里文字比条大 2.5 倍，fork 是 1:1）。整组自下而上排：</p>
+     * <pre>
+     *   护甲行   top = -28   （🛡 防御 + 真盔甲 + 2 项元素护甲，每 2 s 翻页）
+     *   心数行   top = -18   （❤ 当前/上限 + 一种轮换心）
+     *   血条     -7 ~ -2     （原版 boss_bar 纹理，两端端盖 4 纹素按原尺寸）
+     *   名字     0 ~ 9       （fork 里由原版名牌画在条下方，这里同位置复刻）
+     * </pre>
+     */
+    private static void drawFork(GuiGraphicsExtractor context, Font font, Placement p,
+                                 ModConfig cfg, double unit) {
+        MobHealthData data = p.data;
+        long now = System.currentTimeMillis();
+        int entityId = p.entity != null ? p.entity.getId() : 0;
+
+        int[] armour = forkArmour(p.dataUuid, data);
+        int defence = forkDefence(p.dataUuid, data);
+        int[] hearts = forkHearts(data);
+
+        ForkHudLayout.Options opt = new ForkHudLayout.Options();
+        // 条长与上游滑杆共用：半宽 × 2，再夹进 fork 的 50~150（默认 60×2 = 120）。
+        opt.barWidth = cfg.mobBarHalfWidth * 2.0;
+        opt.armourPage = ForkHudLayout.page(armour, now, entityId);
+        opt.cycleKind = ForkHudLayout.cycleKind(hearts, false, now, entityId);
+        opt.crackedGlyph = crackedGlyphAvailable(font);
+        ForkHudLayout.Result layout = ForkHudLayout.compute(
+                data.hp, data.maxHP, data.percentOnly, defence, armour, hearts, opt, font::width);
+        if (layout.isEmpty()) return;
+
+        int textAlpha = alphaOf(cfg.mobTextOpacity);
+        var pose = context.pose();
+        pose.pushMatrix();
+        pose.translate((float) p.gx, (float) p.gy);
+        pose.scale((float) unit, (float) unit);
+
+        // ① 文字行（每行各自居中；最下面那行贴 TEXT_TOP）
+        for (ForkHudLayout.Row row : layout.rows) {
+            float x = -row.width / 2.0f;
+            for (ForkHudLayout.Line line : row.lines) {
+                context.text(font, line.text, Math.round(x), row.top,
+                        ForkBarTexture.argb(line.rgb, textAlpha), cfg.textShadow);
+                x += font.width(line.text);
+            }
+        }
+
+        // ② 血条：整条背景（含空槽）+ 从左裁到 fill 的进度段，两段都是原版纹理
+        if (layout.barWidth > 0) {
+            ForkBarTexture.Tint tint = ForkBarTexture.tintFor(forkBarKind(data));
+            int barColor = ForkBarTexture.argb(0xFFFFFF, alphaOf(cfg.mobBarOpacity));
+            float halfW = layout.barWidth / 2.0f;
+            int fill = ForkHudLayout.fillPixels(layout.barWidth, forkRatio(data));
+            drawBarSpan(context, ForkBarTexture.backgroundTexture(tint), -halfW, halfW,
+                    0.0f, ForkBarTexture.NATIVE_WIDTH, barColor);
+            if (fill > 0) {
+                float uFill = ForkBarTexture.NATIVE_WIDTH * Math.min(1.0f, fill / (float) layout.barWidth);
+                drawBarSpan(context, ForkBarTexture.progressTexture(tint), -halfW, -halfW + fill,
+                        0.0f, uFill, barColor);
+            }
+        }
+
+        // ③ 名字：fork 自己不画名字 —— 名字是原版名牌（0~9 那一行）画的，位于血条正下方。
+        //    这里同样不画，避免与原版名牌重叠成两份字。
+        pose.popMatrix();
+    }
+
+    /**
+     * 画一条原版 {@code boss_bar} 纹理的一段（182×5）：两端端盖按纹素原尺寸、中段拉伸。
+     *
+     * @param xa / xb 这段在布局里的横坐标；{@code ua} / {@code ub} 对应的纹理横坐标（纹素 0~182）
+     */
+    private static void drawBarSpan(GuiGraphicsExtractor context, net.minecraft.resources.Identifier tex,
+                                    float xa, float xb, float ua, float ub, int color) {
+        for (float[] s : ForkBarTexture.slices(xa, xb, ua, ub)) {
+            int ax = Math.round(s[0]);
+            int bx = Math.round(s[1]);
+            if (bx <= ax) continue;
+            int uWidth = Math.max(1, Math.round(s[3] - s[2]));
+            context.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, tex,
+                    ax, ForkHudLayout.BAR_TOP, s[2], 0.0f,
+                    bx - ax, ForkHudLayout.BAR_HEIGHT,
+                    uWidth, ForkBarTexture.NATIVE_HEIGHT,
+                    ForkBarTexture.NATIVE_WIDTH, ForkBarTexture.NATIVE_HEIGHT, color);
+        }
+    }
+
+    /**
+     * fork 的心数模型：{@code 红心 = AllHearts - 魂 - 黑 - 蓝}
+     * （数据包 {@code health.mcfunction}），碎心按 cracked 的正负拆成碎 / 粉。
+     */
+    private static int[] forkHearts(MobHealthData data) {
+        if (data.percentOnly) return ForkHudLayout.unknownHearts();
+        int all = Math.max(0, data.hp);
+        int soul = Math.max(0, data.soulHearts);
+        int black = Math.max(0, data.blackHearts);
+        int blue = Math.max(0, data.blueHearts);
+        int red = Math.max(0, all - soul - black - blue);
+        return ForkHudLayout.hearts(red, soul, black, blue, data.crackedHearts);
+    }
+
+    /**
+     * fork 的七档元素护甲：双端优先用 payload（{@code data.armour}），纯客户端回落到
+     * {@link MobArmorCollector} 从 bossbar 后缀轮换聚合出来的槽位（slot i+1 = armour[i]）。
+     */
+    private static int[] forkArmour(java.util.UUID dataUuid, MobHealthData data) {
+        int[] armour = new int[ForkHudLayout.ARMOUR_ICONS.length];
+        boolean any = false;
+        if (data.armour != null) {
+            for (int i = 0; i < armour.length && i < data.armour.length; i++) {
+                armour[i] = data.armour[i];
+                if (armour[i] != 0) any = true;
+            }
+        }
+        if (!any) {
+            int[] slots = new int[MobArmorCollector.ARMOR_SLOTS];
+            MobArmorCollector.slots(dataUuid, slots);
+            for (int i = 0; i < armour.length; i++) armour[i] = slots[i + 1];
+        }
+        return armour;
+    }
+
+    /** 🛡 防御值：payload 优先，纯客户端回落到后缀聚合的 slot 0。 */
+    private static int forkDefence(java.util.UUID dataUuid, MobHealthData data) {
+        if (data.defence != 0) return data.defence;
+        int[] slots = new int[MobArmorCollector.ARMOR_SLOTS];
+        MobArmorCollector.slots(dataUuid, slots);
+        return slots[0];
+    }
+
+    /** fork 的「当前血条表现的心类」：蓝 &gt; 黑 &gt; 魂 &gt; 红（数据包 HeartValue 的优先级）。 */
+    private static int forkBarKind(MobHealthData d) {
+        if (d.blueHearts > 0 && d.maxBlueHearts > 0) return ForkHudLayout.BLUE;
+        if (d.blackHearts > 0 && d.maxBlackHearts > 0) return ForkHudLayout.BLACK;
+        if (d.soulHearts > 0 && d.maxSoulHearts > 0) return ForkHudLayout.SOUL;
+        return ForkHudLayout.RED;
+    }
+
+    /** 与 {@link #forkBarKind} 配套的填充比例（每一层各自从满格算）。 */
+    private static float forkRatio(MobHealthData d) {
+        if (d.blueHearts > 0 && d.maxBlueHearts > 0) return clamp01(d.blueHearts / (float) d.maxBlueHearts);
+        if (d.blackHearts > 0 && d.maxBlackHearts > 0) return clamp01(d.blackHearts / (float) d.maxBlackHearts);
+        if (d.soulHearts > 0 && d.maxSoulHearts > 0) return clamp01(d.soulHearts / (float) d.maxSoulHearts);
+        if (d.maxHP <= 0) return 0.0f;
+        int red = Math.max(0, d.hp - Math.max(0, d.soulHearts)
+                - Math.max(0, d.blackHearts) - Math.max(0, d.blueHearts));
+        return clamp01(Math.min(red, d.maxHP) / (float) d.maxHP);
+    }
+
+    private static float clamp01(float v) {
+        return Float.isNaN(v) ? 0.0f : Math.max(0.0f, Math.min(1.0f, v));
+    }
+
+    /** 0..1 的不透明度 → 0..255 的 alpha。 */
+    private static int alphaOf(double opacity) {
+        return (int) Math.round(Math.max(0.0, Math.min(1.0, opacity)) * 255.0);
+    }
+
+    /** 裂心字形探测用的字体实例与结果（换语言 / 换资源包会换字体实例）。 */
+    private static Font glyphFont;
+    private static boolean crackedGlyph;
+
+    /**
+     * 地图资源包里有没有裂心字形（{@code U+E026}）：没有资源包时 {@code Font.width} 为 0，
+     * 此时碎心 / 粉心退回 ❤（fork 同样逻辑）。
+     */
+    private static boolean crackedGlyphAvailable(Font font) {
+        if (font == null) return false;
+        if (font != glyphFont) {
+            glyphFont = font;
+            crackedGlyph = font.width(ForkHudLayout.CRACKED_GLYPH) > 0;
+        }
+        return crackedGlyph;
     }
 
     // ── 工具 ──

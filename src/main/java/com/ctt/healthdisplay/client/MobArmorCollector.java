@@ -200,6 +200,26 @@ public final class MobArmorCollector {
         return out;
     }
 
+    /**
+     * 本 fork 移植：8 个护甲槽的<b>定长读数</b>（0=防御，1..7=火/冰/暗/光/真/水/电）。
+     *
+     * <p>{@link #current} 只返回非 0 的段、且带图标文本；fork 风格的血条排版需要「按下标取值」
+     * （它自己决定谁常驻、谁分页），所以这里直接填一个长度 8 的数组，TTL 外的槽写 0。</p>
+     */
+    public static void slots(UUID id, int[] out8) {
+        if (out8 == null) return;
+        java.util.Arrays.fill(out8, 0);
+        if (id == null) return;
+        Entry entry = ENTRIES.get(id);
+        if (entry == null) return;
+        long now = System.currentTimeMillis();
+        for (int s = 0; s < ARMOR_SLOTS && s < out8.length; s++) {
+            if (entry.values[s] != 0 && now - entry.seenMs[s] <= SLOT_TTL_MS) {
+                out8[s] = entry.values[s];
+            }
+        }
+    }
+
     // v8.5.5：心形数量段的固定配色（💛 黄 / 🖤 黑 / 💙 蓝，💜 预留位淡紫）。
     // 血条本身不再按心色分层，这些数字段与护甲同排显示在怪物头顶。
     private static final int HEART_SEG_SOUL  = 0xFFFFDD44;
