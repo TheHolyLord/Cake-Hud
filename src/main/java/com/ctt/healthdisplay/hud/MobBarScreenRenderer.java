@@ -355,6 +355,9 @@ public final class MobBarScreenRenderer {
      *   名字     0 ~ 9       （fork 里由原版名牌画在条下方，这里同位置复刻）
      * </pre>
      */
+    /** 上游 {@code mobBarHalfWidth} 的出厂默认值（fork 风格下拿来做「没动过滑杆」的判据）。 */
+    private static final int UPSTREAM_DEFAULT_HALF_WIDTH = 60;
+
     private static void drawFork(GuiGraphicsExtractor context, Font font, Placement p,
                                  ModConfig cfg, double unit) {
         MobHealthData data = p.data;
@@ -366,8 +369,12 @@ public final class MobBarScreenRenderer {
         int[] hearts = forkHearts(data);
 
         ForkHudLayout.Options opt = new ForkHudLayout.Options();
-        // 条长与上游滑杆共用：半宽 × 2，再夹进 fork 的 50~150（默认 60×2 = 120）。
-        opt.barWidth = cfg.mobBarHalfWidth * 2.0;
+        // 条长：上游滑杆是「半宽」（默认 60 = 120 px），fork 的配置是「整条长度」（默认 75）。
+        // 滑杆仍是上游默认值时用 fork 的 75，让 fork 风格默认就和 fork 一模一样；
+        // 用户动过滑杆就按 半宽 × 2 换算，再夹进 fork 的 50~150。
+        opt.barWidth = cfg.mobBarHalfWidth == UPSTREAM_DEFAULT_HALF_WIDTH
+                ? ForkHudLayout.BAR_WIDTH_DEFAULT
+                : cfg.mobBarHalfWidth * 2.0;
         opt.armourPage = ForkHudLayout.page(armour, now, entityId);
         opt.cycleKind = ForkHudLayout.cycleKind(hearts, false, now, entityId);
         opt.crackedGlyph = crackedGlyphAvailable(font);
