@@ -224,7 +224,11 @@ public final class MobBarScreenRenderer {
             // v8.5.8 显示门槛（正常 / 受伤期同一套规则，用户拍板）：屏幕上必须看到这个
             // 敌人且视线无方块遮挡；>10 格还要看全碰撞箱。实体模型挡在中间不算遮挡
             // （"血条不能被实体模型挡住"）；显示出来的血条画在 HUD 最顶层压不住。
-            if (!isEnemyVisible(mc, camPos, viewProj, entity, partialTick, guiW, guiH, anchor)) {
+            // fork 风格：整组不做「方块遮挡」剔除。fork 的 HUD 是带透视副本常显的
+            // （隔墙也能看到半透明的一份），本类又画在 HUD 层没有深度测试，
+            // 再按方块射线隐藏就变成「血条被方块吃掉」，与 fork 不一致。
+            if (!isEnemyVisible(mc, camPos, viewProj, entity, partialTick, guiW, guiH, anchor,
+                    cfg.hudStyle == 1)) {
                 continue;
             }
 
@@ -595,7 +599,8 @@ public final class MobBarScreenRenderer {
      */
     private static boolean isEnemyVisible(Minecraft mc, Vec3 camPos, Matrix4f viewProj,
                                           Entity entity, float partialTick,
-                                          double guiW, double guiH, Vec3 anchor) {
+                                          double guiW, double guiH, Vec3 anchor,
+                                          boolean ignoreBlocks) {
         AABB box = entity.getBoundingBox();
         Vec3 cur = entity.position();
         Vec3 interp = entity.getPosition(partialTick);
@@ -630,7 +635,7 @@ public final class MobBarScreenRenderer {
             if (!close) {
                 // 远怪：看全碰撞箱——任何一角在相机身后 / 出屏 / 被方块挡 → 隐藏。
                 if (!frontAndOnScreen) return false;
-                if (!rayClearTo(mc, camPos, corner)) return false;
+                if (!ignoreBlocks && !rayClearTo(mc, camPos, corner)) return false;
             }
         }
         // 近处巨型怪（如贴脸的 Boss）角点可能全部出屏，但身体明显可见：中心点补一路采样。
@@ -640,7 +645,7 @@ public final class MobBarScreenRenderer {
         }
         if (!anyOnScreen) return false;
 
-        if (close) {
+        if (close && !ignoreBlocks) {
             // 近距离豁免"看全碰撞箱"，但"无方块遮挡"照旧：中心 + 头顶锚点视线都必须畅通。
             if (!rayClearTo(mc, camPos, center)) return false;
             if (!rayClearTo(mc, camPos, anchor)) return false;
