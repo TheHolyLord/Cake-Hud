@@ -24,6 +24,5 @@ Thumbs.db
 desktop.ini
 
 # 本地运行时生成的配置与存档（不纳入版本管理）
-config/
 *.log
 hs_err_pid*
