@@ -93,11 +93,15 @@ public final class ShieldCooldownRenderer {
 
         // 可选的「贴图仪表」样式（默认关闭，保持上游原来的小条）。
         if (ModConfig.INSTANCE.shieldTextureStyle) {
-            // fork 的四档贴图是按「磨损比」（damage/maxDamage）分的：磨损越多档位越低
-            // （0 = 刚用完/空槽，3 = 已基本回满/满格）。这里的 progress 是**剩余比**，
-            // 必须换算成磨损比再取档 —— 直接把剩余比喂进 fork 的阈值会让档位整个反过来，
-            // 表现就是「冷却完成时反而显示空槽」。
+            // fork 的四档贴图只有 4 张（按磨损比 damage/maxDamage 分档），「完全就绪」这一态
+            // 它不是画第 5 张图，而是**整块不渲染**（fork: {@code if (damage <= 0) return;}）。
+            // 所以磨损 = 0（耐久满 / 无耐久概念）时直接返回，和 fork 一致。
             float wear = 1.0f - Math.max(0f, Math.min(1f, progress));
+            if (wear <= 0.0f) return;
+            // fork 的档位：磨损越多档位越低（0 = 刚用完/空槽，3 = 已基本回满/满格）。
+            // 这里的 progress 是**剩余比**，必须先换算成磨损比再取档 ——
+            // 直接把剩余比喂进 fork 的阈值会让档位整个反过来
+            // （表现：冷却完成时反而显示空槽）。
             int stage = wear < 0.4f ? 3 : wear < 0.6f ? 2 : wear < 0.8f ? 1 : 0;
             double scale = Math.max(0.25, Math.min(3.0, ModConfig.INSTANCE.shieldScale));
             int tw = Math.max(1, (int) Math.round(TEX_W * scale));
