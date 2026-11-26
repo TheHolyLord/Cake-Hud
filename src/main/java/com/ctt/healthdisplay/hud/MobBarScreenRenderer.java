@@ -511,10 +511,94 @@ public final class MobBarScreenRenderer {
         return 0xFFE84040;
     }
 
+    // ── v8.1：Psy 分身组 ──
+    /** 组快照缓存时长：50 ms（够一帧，且不会在 4 Hz 包之间抖动）。 */
+    private static final long PSY_GROUP_TTL_MS = 50L;
+    private static long psyGroupAt = 0L;
+    private static ResolvedData psyGroupCache;
+
+    /** 地图给 Psy 的 custom name 键（去掉末尾不可见字符 U+E007 后）。 */
+    private static final java.util.Set<String> PSY_NAME_KEYS =
+            java.util.Set.of("Psy", "Psy_2XXX", "Rockstar_Psy", "Rockstar Psy");
+
+    private static String stripPsySuffix(String key) {
+        if (key == null) return null;
+        int end = key.length();
+        while (end > 0 && key.charAt(end - 1) == '\uE007') end--;
+        return key.substring(0, end);
+    }
+
+    /** 名字组件的 translate 键是否是 Psy 家族（与显示语言无关）。 */
+    private static boolean isPsyName(Component name) {
+        if (name == null) return false;
+        if (name.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc
+                && tc.getKey() != null) {
+            return PSY_NAME_KEYS.contains(stripPsySuffix(tc.getKey()));
+        }
+        return false;
+    }
+
+    private static boolean isPsyMember(Entity entity, Map<UUID, MobHealthData> map) {
+        if (entity.entityTags().contains("Psy") || entity.entityTags().contains("PsyClone")) return true;
+        if (isPsyName(entity.getCustomName())) return true;
+        MobHealthData d = map.get(entity.getUUID());
+        return d != null && isPsyName(d.nameText);
+    }
+
+    /** 纯客户端用的百分比条目（不要求客户端可见的 E/Boss/Targetting tag）。 */
+    private static MobHealthData percentOf(Minecraft mc, Entity entity) {
+        int pct = healthPercentOf(mc, entity);
+        if (pct < 0) return null;
+        Component name = entity.getDisplayName();
+        if (name == null) name = entity.getName();
+        MobHealthData d = new MobHealthData(name == null ? Component.empty() : name,
+                Component.empty(), pct, 100, 0L);
+        d.percentOnly = true;
+        return d;
+    }
+
+    /**
+     * 整组共同读数：<ol>
+     *   <li>组内任意实体在 payload map 里已有条目（双端；服务端已把分身映射到 Boss）→ 用它；</li>
+     *   <li>否则取组内<b>最低</b> HealthPercent（纯客户端；分身恒 100%，真身掉血后更低）。</li>
+     * </ol>
+     */
+    private static ResolvedData psyGroupData(Minecraft mc, Map<UUID, MobHealthData> map) {
+        long now = System.currentTimeMillis();
+        if (now - psyGroupAt < PSY_GROUP_TTL_MS) return psyGroupCache;
+        psyGroupAt = now;
+        if (mc.level == null) { psyGroupCache = null; return null; }
+        ResolvedData best = null;
+        MobHealthData lowest = null;
+        UUID lowestUuid = null;
+        for (Entity other : mc.level.entitiesForRendering()) {
+            if (other == null || other.isRemoved() || !other.isAlive()) continue;
+            if (!isPsyMember(other, map)) continue;
+            MobHealthData d = map.get(other.getUUID());
+            if (d != null) { best = new ResolvedData(d, other.getUUID()); break; }
+            MobHealthData pct = percentOf(mc, other);
+            if (pct != null && (lowest == null || pct.hp < lowest.hp)) {
+                lowest = pct;
+                lowestUuid = other.getUUID();
+            }
+        }
+        if (best == null && lowest != null) best = new ResolvedData(lowest, lowestUuid);
+        psyGroupCache = best;
+        return best;
+    }
+
     private static ResolvedData findMobData(Minecraft mc, Entity entity) {
         Map<UUID, MobHealthData> map = HealthData.getMobHealthMap();
         // v8.6.0 · 空表不再一票否决：纯客户端模式下百分比兜底不依赖这张表。
         if (map.isEmpty() && ClientMobHealthCache.isFresh()) return null;
+
+        // v8.1：Psy 家族（真身 + 所有分身）整组共用同一份数据 —— 纯客户端也必须一致。
+        // 旧逻辑依赖 entityTags()/名字，客户端 tag 恒空、名字又是翻译后的「鸟叔」，
+        // 纯客户端下分身只能读自己的 HealthPercent，数值不同 → 暴露真身。
+        if (isPsyMember(entity, map)) {
+            ResolvedData group = psyGroupData(mc, map);
+            if (group != null) return group;
+        }
 
         // PsyClone 只是场地上的分身，用户要求它的血量、护甲和特殊心始终跟随
         // 同场地、带 Boss 标签的 Psy，而不是读取分身自己的 RedHearts。
