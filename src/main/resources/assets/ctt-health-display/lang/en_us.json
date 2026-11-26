@@ -121,5 +121,6 @@
   "ctt-health-display.config.option.fork_shield_scale": "Shield scale: %s",
   "ctt-health-display.config.option.fork_shield_opacity": "Shield opacity: %s",
   "ctt-health-display.config.value.fork_style_bar": "Bar",
-  "ctt-health-display.config.value.fork_style_texture": "Texture"
+  "ctt-health-display.config.value.fork_style_texture": "Texture",
+  "ctt-health-display.config.hint_drag_shield": "Drag the shield marker to move it"
 }

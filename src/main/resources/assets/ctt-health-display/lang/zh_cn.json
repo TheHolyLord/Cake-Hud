@@ -121,5 +121,6 @@
   "ctt-health-display.config.option.fork_shield_scale": "盾牌缩放：%s",
   "ctt-health-display.config.option.fork_shield_opacity": "盾牌不透明度：%s",
   "ctt-health-display.config.value.fork_style_bar": "小条",
-  "ctt-health-display.config.value.fork_style_texture": "贴图"
+  "ctt-health-display.config.value.fork_style_texture": "贴图",
+  "ctt-health-display.config.hint_drag_shield": "拖动盾牌标记可调整位置"
 }

@@ -84,8 +84,11 @@ public final class ShieldCooldownRenderer {
 
         int w = context.guiWidth();
         int h = context.guiHeight();
-        int cx = w / 2;
-        int top = h / 2 + OFFSET_Y;
+        // 本 fork：允许在设置界面拖动位置；未设置时保持上游的「准星下方居中」。
+        boolean custom = ModConfig.INSTANCE.shieldX >= 0 && ModConfig.INSTANCE.shieldY >= 0;
+        int cx = custom ? ModConfig.INSTANCE.shieldX : w / 2;
+        int baseTop = custom ? ModConfig.INSTANCE.shieldY : h / 2 + OFFSET_Y;
+        int top = custom ? baseTop - BAR_H / 2 : baseTop;
         int left = cx - BAR_W / 2;
 
         // 可选的「贴图仪表」样式（默认关闭，保持上游原来的小条）。
@@ -96,7 +99,8 @@ public final class ShieldCooldownRenderer {
             int th = Math.max(1, (int) Math.round(TEX_H * scale));
             int alpha = (int) Math.round(255.0
                     * Math.max(0.0, Math.min(1.0, ModConfig.INSTANCE.shieldOpacity)));
-            context.blit(RenderPipelines.GUI_TEXTURED, METER[stage], cx - tw / 2, top,
+            int texY = custom ? baseTop - th / 2 : baseTop;
+            context.blit(RenderPipelines.GUI_TEXTURED, METER[stage], cx - tw / 2, texY,
                     0.0f, 0.0f, tw, th, TEX_W, TEX_H, TEX_W, TEX_H, (alpha << 24) | 0xFFFFFF);
             return;
         }

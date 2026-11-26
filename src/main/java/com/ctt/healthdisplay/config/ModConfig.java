@@ -132,4 +132,15 @@ public class ModConfig {
     public boolean shieldTextureStyle = false;
     public double shieldScale = 0.7;
     public double shieldOpacity = 1.0;
+
+    // ── 本 fork 移植：盾牌位置 / 头顶血条风格 / 属性面板过滤 ──
+    /** 盾牌指示器位置（GUI 像素）；-1 = 上游默认（准星下方居中）。 */
+    public int shieldX = -1;
+    public int shieldY = -1;
+    /** 是否允许在设置界面拖动盾牌位置。 */
+    public boolean shieldDraggable = true;
+    /** 头顶血条风格：0 = 上游（矩形条），1 = fork（心型行文本）。 */
+    public int hudStyle = 0;
+    /** 属性面板里隐藏的行（按行标签精确匹配）。 */
+    public java.util.List<String> hiddenStats = new java.util.ArrayList<>();
 }

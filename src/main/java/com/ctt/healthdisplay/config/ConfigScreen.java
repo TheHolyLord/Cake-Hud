@@ -19,6 +19,11 @@ public class ConfigScreen extends Screen {
    private int statsX;
    private int statsY;
    private boolean draggingStats = false;
+   private int shieldX = -1;
+   private int shieldY = -1;
+   private boolean draggingShield = false;
+   private double shieldDragOX;
+   private double shieldDragOY;
    private double statsDragOX;
    private double statsDragOY;
    private int refreshInterval;
@@ -93,6 +98,8 @@ public class ConfigScreen extends Screen {
          this.clientDamageDebugChat = cfg.clientDamageDebugChat;
          this.embeddedHudMode = cfg.embeddedHudMode;
          this.clientKillDebugChat = cfg.clientKillDebugChat;
+         this.shieldX = cfg.shieldX;
+         this.shieldY = cfg.shieldY;
          this.firstInit = false;
       }
 
@@ -471,6 +478,7 @@ public class ConfigScreen extends Screen {
 
    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
       super.extractRenderState(context, mouseX, mouseY, delta);
+      this.renderShieldMarker(context);
       context.centeredText(this.font, this.title, this.width / 2, 8, 16777215);
       int dividerX = this.width / 2;
       context.fill(dividerX - 1, 24, dividerX, this.height - 36, 1090519039);
@@ -549,6 +557,28 @@ public class ConfigScreen extends Screen {
       return content + 10;
    }
 
+   /** 盾牌标记的当前屏幕坐标（未设置时 = 准星下方默认位置）。 */
+   private int shieldMarkerX() {
+      return this.shieldX >= 0 ? this.shieldX : this.width / 2;
+   }
+
+   private int shieldMarkerY() {
+      return this.shieldY >= 0 ? this.shieldY : this.height / 2 + 32;
+   }
+
+   /** 设置界面里的盾牌位置标记 + 提示。 */
+   private void renderShieldMarker(GuiGraphicsExtractor context) {
+      int x = this.shieldMarkerX();
+      int y = this.shieldMarkerY();
+      context.fill(x - 10, y - 10, x + 10, y + 10, 0x60FFAA00);
+      context.fill(x - 10, y - 10, x + 10, y - 9, 0xFFFFAA00);
+      context.fill(x - 10, y + 9, x + 10, y + 10, 0xFFFFAA00);
+      context.fill(x - 10, y - 10, x - 9, y + 10, 0xFFFFAA00);
+      context.fill(x + 9, y - 10, x + 10, y + 10, 0xFFFFAA00);
+      context.centeredText(this.font, Component.translatable("ctt-health-display.config.hint_drag_shield"),
+            x, y - 4, 0xFFCC8800);
+   }
+
    private void renderStatsPreview(GuiGraphicsExtractor context) {
       int pw = this.getStatsPanelW();
       int ph = this.getStatsPanelH();
@@ -603,6 +633,15 @@ public class ConfigScreen extends Screen {
 
    public boolean beginPreviewDrag(double mouseX, double mouseY) {
       if (!(mouseX >= this.width / 2) && !(mouseY >= this.height - 36)) {
+         int sx = this.shieldMarkerX();
+         int sy = this.shieldMarkerY();
+         if (ModConfig.INSTANCE.shieldDraggable
+               && this.hitTest(mouseX, mouseY, sx - 10, sy - 10, 20, 20)) {
+            this.draggingShield = true;
+            this.shieldDragOX = mouseX - sx;
+            this.shieldDragOY = mouseY - sy;
+            return true;
+         }
          if (this.hitTest(mouseX, mouseY, this.statsX, this.statsY, this.getStatsPanelW(), this.getStatsPanelH())) {
             this.draggingStats = true;
             this.statsDragOX = mouseX - this.statsX;
@@ -623,7 +662,10 @@ public class ConfigScreen extends Screen {
 
    public void movePreviewDrag(double mouseX, double mouseY) {
       int maxDragX = this.width / 2 - 10;
-      if (this.draggingStats) {
+      if (this.draggingShield) {
+         this.shieldX = clamp((int)(mouseX - this.shieldDragOX), 0, this.width - 20);
+         this.shieldY = clamp((int)(mouseY - this.shieldDragOY), 0, this.height - 20);
+      } else if (this.draggingStats) {
          this.statsX = clamp((int)(mouseX - this.statsDragOX), 0, maxDragX);
          this.statsY = clamp((int)(mouseY - this.statsDragOY), 0, this.height - this.getStatsPanelH());
       } else if (this.draggingMate) {
@@ -635,6 +677,7 @@ public class ConfigScreen extends Screen {
    public void endPreviewDrag() {
       this.draggingMate = false;
       this.draggingStats = false;
+      this.draggingShield = false;
    }
 
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
@@ -688,6 +731,8 @@ public class ConfigScreen extends Screen {
       ModConfig.INSTANCE.hideTeamBar = this.hideTeamBar;
       ModConfig.INSTANCE.hideMobBars = this.hideMobBars;
       ModConfig.INSTANCE.showShieldCooldown = this.showShieldCooldown;
+      ModConfig.INSTANCE.shieldX = this.shieldX;
+      ModConfig.INSTANCE.shieldY = this.shieldY;
       ModConfig.INSTANCE.clientDamageHudHeader = this.clientDamageHudHeader;
       ModConfig.INSTANCE.clientDamageDebugChat = this.clientDamageDebugChat;
       ModConfig.INSTANCE.embeddedHudMode = this.embeddedHudMode;
