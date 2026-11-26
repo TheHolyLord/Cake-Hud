@@ -273,6 +273,10 @@ public class ConfigScreen extends Screen {
                forkScaleText(ModConfig.INSTANCE.shieldScale)));
       }).bounds(x, y, btnW, 20).build());
       y += 24;
+      this.optionButtons.add(Button.builder(Component.translatable("ctt-health-display.config.btn.stats_filter"),
+            btn -> this.minecraft.gui.setScreen(new StatsFilterScreen(this)))
+            .bounds(x, y, btnW, 20).build());
+      y += 24;
       this.optionButtons.add(Button.builder(forkOption("ctt-health-display.config.option.fork_shield_opacity",
             forkPercent(ModConfig.INSTANCE.shieldOpacity)), btn -> {
          ModConfig.INSTANCE.shieldOpacity = forkNextStep(FORK_OPACITY_STEPS, ModConfig.INSTANCE.shieldOpacity);

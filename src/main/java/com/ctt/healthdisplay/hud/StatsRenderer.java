@@ -38,7 +38,10 @@ public class StatsRenderer {
             return;
         }
 
-        List<Component> lines = data.getLines();
+        // 本 fork：按用户配置过滤掉不需要的行。
+        List<Component> lines = data.getLines().stream()
+                .filter(line -> !config.isStatsLineHidden(line.getString()))
+                .toList();
         if (lines.isEmpty()) return;
 
         int columns = Math.clamp(config.statsColumns, 1, ModConfig.MAX_STATS_COLUMNS);

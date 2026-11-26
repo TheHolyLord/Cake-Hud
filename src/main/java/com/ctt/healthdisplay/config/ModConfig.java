@@ -143,4 +143,16 @@ public class ModConfig {
     public int hudStyle = 0;
     /** 属性面板里隐藏的行（按行标签精确匹配）。 */
     public java.util.List<String> hiddenStats = new java.util.ArrayList<>();
+
+    /** 属性面板：该行是否被用户隐藏（按 "标签: 值" 的标签精确匹配）。 */
+    public boolean isStatsLineHidden(String plain) {
+        if (hiddenStats == null || hiddenStats.isEmpty() || plain == null) return false;
+        String t = plain.trim();
+        for (String h : hiddenStats) {
+            if (h == null || h.isEmpty()) continue;
+            String key = h.trim();
+            if (t.equals(key) || t.startsWith(key + ":") || t.startsWith(key + "：")) return true;
+        }
+        return false;
+    }
 }
