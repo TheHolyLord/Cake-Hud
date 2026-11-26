@@ -139,8 +139,11 @@ public class ModConfig {
     public int shieldY = -1;
     /** 是否允许在设置界面拖动盾牌位置。 */
     public boolean shieldDraggable = true;
-    /** 头顶血条风格：0 = 上游（矩形条），1 = fork（心型行文本）。 */
-    public int hudStyle = 0;
+    /**
+     * 头顶血条风格：1 = fork（CTT HUD - Fork 的 1:1 复刻，本分支默认），0 = 上游（矩形条）。
+     * 设置界面「头顶血条风格」按钮切换。
+     */
+    public int hudStyle = 1;
     /** 属性面板里隐藏的行（按行标签精确匹配）。 */
     public java.util.List<String> hiddenStats = new java.util.ArrayList<>();
 
