@@ -351,6 +351,11 @@ public final class MobBarScreenRenderer {
         pose.pushMatrix();
         pose.translate((float) gx, (float) gy);
         pose.scale((float) unit, (float) unit);
+        if (forkStyle) {
+            // 本 fork 风格：条外加 1px 深色边框（我们 fork 的条是描边的）
+            context.fill(-halfOld - 1, (int) BAR_TOP - 1, halfOld + 1, (int) (BAR_TOP + BAR_H) + 1,
+                    0xB0000000);
+        }
         context.fill(-halfOld, (int) BAR_TOP, halfOld, (int) (BAR_TOP + BAR_H),
                 withAlpha(EMPTY_FILL, ModConfig.INSTANCE.mobBarOpacity));
         int fillOld = (int) Math.round(2.0 * halfOld * pct / 100.0);
