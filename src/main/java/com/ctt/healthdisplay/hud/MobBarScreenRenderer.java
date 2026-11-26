@@ -208,6 +208,8 @@ public final class MobBarScreenRenderer {
         BUF.clear();
         for (Entity entity : mc.level.entitiesForRendering()) {
             if (entity instanceof net.minecraft.world.entity.player.Player) continue;
+            // v8：服务端标记抑制的实体（NPC 布景）不画。
+            if (ClientMobHealthCache.isSuppressed(entity.getUUID())) continue;
             if (entity.isInvisible() || !entity.shouldRender(camPos.x, camPos.y, camPos.z)) continue;
             ResolvedData resolved = findMobData(mc, entity);
             if (resolved == null) continue;
