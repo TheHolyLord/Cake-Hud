@@ -248,7 +248,9 @@ public final class MobBarScreenRenderer {
             // 仅平移绘制位置，原锚点仍用于遮挡检测和缩放。
             boolean keepHeight = psy || entity.entityTags().contains("Psy")
                     || "鸟叔".equals(data.name()) || "鸟叔".equals(entity.getName().getString());
-            p.gy = keepHeight ? pt[1] : pt[1] - NORMAL_BAR_LIFT * S * ppu;
+            // fork 风格：整组按 fork 自己的锚点画（fork 没有上游那 8 px 的额外抬高），
+            // Psy 系仍用更高的头距。
+            p.gy = (keepHeight || cfg.hudStyle == 1) ? pt[1] : pt[1] - NORMAL_BAR_LIFT * S * ppu;
             p.ppu = ppu;
             BUF.add(p);
         }
