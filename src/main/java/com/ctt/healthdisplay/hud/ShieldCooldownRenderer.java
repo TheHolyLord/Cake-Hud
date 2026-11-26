@@ -5,6 +5,8 @@ import com.ctt.healthdisplay.config.ModConfig;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.item.ItemStack;
 
@@ -44,6 +46,16 @@ public final class ShieldCooldownRenderer {
 
     private static volatile boolean subtitlesVisible;
 
+    /** 移植自本 fork：四张 34×86 的盾牌计量贴图（按剩余耐久分四档）。 */
+    private static final int TEX_W = 34;
+    private static final int TEX_H = 86;
+    private static final Identifier[] METER = {
+            Identifier.fromNamespaceAndPath("ctt-health-display", "textures/gui/meter_0.png"),
+            Identifier.fromNamespaceAndPath("ctt-health-display", "textures/gui/meter_1.png"),
+            Identifier.fromNamespaceAndPath("ctt-health-display", "textures/gui/meter_2.png"),
+            Identifier.fromNamespaceAndPath("ctt-health-display", "textures/gui/meter_3.png"),
+    };
+
     private ShieldCooldownRenderer() {}
 
     /** 由原版 SubtitleOverlay.extractRenderState 返回点更新，避免读取时机落后一帧。 */
@@ -76,14 +88,34 @@ public final class ShieldCooldownRenderer {
         int top = h / 2 + OFFSET_Y;
         int left = cx - BAR_W / 2;
 
-        context.fill(left - 1, top - 1, left + BAR_W + 1, top + BAR_H + 1, BAR_BORDER);
-        context.fill(left, top, left + BAR_W, top + BAR_H, EMPTY_FILL);
+        // 可选的「贴图仪表」样式（默认关闭，保持上游原来的小条）。
+        if (ModConfig.INSTANCE.shieldTextureStyle) {
+            int stage = progress < 0.4f ? 3 : progress < 0.6f ? 2 : progress < 0.8f ? 1 : 0;
+            double scale = Math.max(0.25, Math.min(3.0, ModConfig.INSTANCE.shieldScale));
+            int tw = Math.max(1, (int) Math.round(TEX_W * scale));
+            int th = Math.max(1, (int) Math.round(TEX_H * scale));
+            int alpha = (int) Math.round(255.0
+                    * Math.max(0.0, Math.min(1.0, ModConfig.INSTANCE.shieldOpacity)));
+            context.blit(RenderPipelines.GUI_TEXTURED, METER[stage], cx - tw / 2, top,
+                    0.0f, 0.0f, tw, th, TEX_W, TEX_H, TEX_W, TEX_H, (alpha << 24) | 0xFFFFFF);
+            return;
+        }
+
+        double opacity = Math.max(0.0, Math.min(1.0, ModConfig.INSTANCE.shieldOpacity));
+        context.fill(left - 1, top - 1, left + BAR_W + 1, top + BAR_H + 1, withAlpha(BAR_BORDER, opacity));
+        context.fill(left, top, left + BAR_W, top + BAR_H, withAlpha(EMPTY_FILL, opacity));
         int fillPx = Math.round(BAR_W * progress);
         if (fillPx > 0) {
-            context.fill(left, top, left + fillPx, top + BAR_H, cooldownColor(progress));
+            context.fill(left, top, left + fillPx, top + BAR_H,
+                    withAlpha(cooldownColor(progress), opacity));
         }
     }
 
+
+    private static int withAlpha(int argb, double opacity) {
+        int a = (int) Math.round(255.0 * Math.max(0.0, Math.min(1.0, opacity)));
+        return (argb & 0x00FFFFFF) | (a << 24);
+    }
 
     private static int cooldownColor(float progress) {
         float p = Math.max(0f, Math.min(1f, progress));

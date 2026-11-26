@@ -136,6 +136,10 @@ public class ModConfig {
     public double teamBarOpacity = 0.65;
     public double teamTextOpacity = 1.00;
     public boolean textShadow = false;
+    // P4：盾牌指示器可换成贴图仪表（默认关闭 = 上游原来的小条）
+    public boolean shieldTextureStyle = false;
+    public double shieldScale = 0.7;
+    public double shieldOpacity = 1.0;
     /** 统计表最大列数（r73 新代码引用）。 */
     public static final int MAX_STATS_COLUMNS = 3;
     /** r73 新增：Lore 悬浮窗跟随鼠标（false = 固定贴背包左侧）。 */
