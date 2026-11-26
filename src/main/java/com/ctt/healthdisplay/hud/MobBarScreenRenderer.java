@@ -283,15 +283,20 @@ public final class MobBarScreenRenderer {
 
         // 本 fork 风格：hp 带 ❤ 前缀，并额外画一行「魂/黑/蓝心数量」。
         boolean forkStyle = ModConfig.INSTANCE.hudStyle == 1;
-        String heartRow = "";
+        java.util.List<String> forkRows = new java.util.ArrayList<>();
         if (forkStyle) {
-            StringBuilder sb = new StringBuilder();
-            if (data.soulHearts > 0) sb.append("\uD83D\uDC9B").append(data.soulHearts).append(' ');
-            if (data.blackHearts > 0) sb.append("\uD83D\uDDA4").append(data.blackHearts).append(' ');
-            if (data.blueHearts > 0) sb.append("\uD83D\uDC99").append(data.blueHearts);
-            heartRow = sb.toString().trim();
+            if (data.soulHearts > 0) forkRows.add("\uD83D\uDC9B " + data.soulHearts);
+            if (data.blackHearts > 0) forkRows.add("\uD83D\uDDA4 " + data.blackHearts);
+            if (data.blueHearts > 0) forkRows.add("\uD83D\uDC99 " + data.blueHearts);
+            for (MobArmorCollector.Segment seg : segs) {
+                if (seg.text != null && seg.text.startsWith("\uD83D\uDEE1")) {
+                    forkRows.add(seg.text);
+                    break;
+                }
+            }
+            armorRows = 0;
         }
-        int extraRows = heartRow.isEmpty() ? 0 : 1;
+        int extraRows = forkRows.size();
         int totalRows = armorRows + extraRows;
 
         // v8.6.0 · 纯客户端兜底条目只有百分比（"73%"）；有绝对值的条目维持 "hp/maxHP"。
