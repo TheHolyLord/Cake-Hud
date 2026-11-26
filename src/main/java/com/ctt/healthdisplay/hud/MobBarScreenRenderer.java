@@ -281,8 +281,22 @@ public final class MobBarScreenRenderer {
         if (segs.size() > 12) segs = segs.subList(0, 12);
         int armorRows = (segs.size() + 3) / 4;       // 0..3
 
+        // 本 fork 风格：hp 带 ❤ 前缀，并额外画一行「魂/黑/蓝心数量」。
+        boolean forkStyle = ModConfig.INSTANCE.hudStyle == 1;
+        String heartRow = "";
+        if (forkStyle) {
+            StringBuilder sb = new StringBuilder();
+            if (data.soulHearts > 0) sb.append("\uD83D\uDC9B").append(data.soulHearts).append(' ');
+            if (data.blackHearts > 0) sb.append("\uD83D\uDDA4").append(data.blackHearts).append(' ');
+            if (data.blueHearts > 0) sb.append("\uD83D\uDC99").append(data.blueHearts);
+            heartRow = sb.toString().trim();
+        }
+        int extraRows = heartRow.isEmpty() ? 0 : 1;
+        int totalRows = armorRows + extraRows;
+
         // v8.6.0 · 纯客户端兜底条目只有百分比（"73%"）；有绝对值的条目维持 "hp/maxHP"。
-        String hpText = data.percentOnly ? data.hp + "%" : data.hp + "/" + data.maxHP;
+        String hpText = (forkStyle ? "\u2764 " : "")
+                + (data.percentOnly ? data.hp + "%" : data.hp + "/" + data.maxHP);
         int pct = data.getPercent();
         // 不透明填充；非"当前锁定目标"靠压暗 RGB（而非降 alpha）区分
         int dim = data.targetted ? 0xFF : 0xB3;
@@ -291,7 +305,7 @@ public final class MobBarScreenRenderer {
         // 见下面血条绘制段）
 
         // 1) 名字（最上方，居中）
-        double nameY = NUM_Y - ROW_STEP * armorRows - 11.0;
+        double nameY = NUM_Y - ROW_STEP * totalRows - 11.0;
         drawScaledText(context, font, data.name(), gx, gy + nameY * unit, ts, true, TEXT_WHITE);
 
         // 2) 护甲/心形行：每行 ≤4 段、逐行居中；第一行离名字最近，最后一行贴着数字上方
@@ -305,7 +319,7 @@ public final class MobBarScreenRenderer {
             }
             totalW += gap * (to - from - 1);
             double cursor = gx - totalW / 2.0;
-            double rowY = NUM_Y - ROW_STEP * (armorRows - r);
+            double rowY = NUM_Y - ROW_STEP * (totalRows - 1 - r);
             double ty = gy + rowY * unit;
             for (int i = from; i < to; i++) {
                 MobArmorCollector.Segment seg = segs.get(i);

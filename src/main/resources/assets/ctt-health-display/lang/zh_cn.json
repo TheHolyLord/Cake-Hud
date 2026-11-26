@@ -125,5 +125,8 @@
   "ctt-health-display.config.hint_drag_shield": "拖动盾牌标记可调整位置",
   "ctt-health-display.config.btn.stats_filter": "属性面板过滤…",
   "ctt-health-display.config.title.stats_filter": "属性面板行过滤",
-  "ctt-health-display.config.hint.stats_filter_empty": "当前没有可过滤的属性行（先 /trigger ViewStats）"
+  "ctt-health-display.config.hint.stats_filter_empty": "当前没有可过滤的属性行（先 /trigger ViewStats）",
+  "ctt-health-display.config.option.fork_hud_style": "头顶血条风格：%s",
+  "ctt-health-display.config.value.fork_hud_style.upstream": "上游",
+  "ctt-health-display.config.value.fork_hud_style.fork": "心型行"
 }

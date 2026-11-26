@@ -125,5 +125,8 @@
   "ctt-health-display.config.hint_drag_shield": "Drag the shield marker to move it",
   "ctt-health-display.config.btn.stats_filter": "Stats panel filter...",
   "ctt-health-display.config.title.stats_filter": "Stats panel line filter",
-  "ctt-health-display.config.hint.stats_filter_empty": "No stat lines yet (use /trigger ViewStats first)"
+  "ctt-health-display.config.hint.stats_filter_empty": "No stat lines yet (use /trigger ViewStats first)",
+  "ctt-health-display.config.option.fork_hud_style": "Head HP style: %s",
+  "ctt-health-display.config.value.fork_hud_style.upstream": "Upstream",
+  "ctt-health-display.config.value.fork_hud_style.fork": "Heart rows"
 }

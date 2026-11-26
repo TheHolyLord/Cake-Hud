@@ -284,6 +284,12 @@ public class ConfigScreen extends Screen {
          btn.setMessage(forkOption("ctt-health-display.config.option.fork_shield_opacity",
                forkPercent(ModConfig.INSTANCE.shieldOpacity)));
       }).bounds(x, y, btnW, 20).build());
+      y += 24;
+      this.optionButtons.add(Button.builder(this.forkHudStyleText(), btn -> {
+         ModConfig.INSTANCE.hudStyle = ModConfig.INSTANCE.hudStyle == 1 ? 0 : 1;
+         ModConfig.INSTANCE.save();
+         btn.setMessage(this.forkHudStyleText());
+      }).bounds(x, y, btnW, 20).build());
       y += 20;
 
       this.optionContentHeight = y - 36;
@@ -341,6 +347,13 @@ public class ConfigScreen extends Screen {
       return forkOption("ctt-health-display.config.option.fork_text_shadow",
          Component.translatable(ModConfig.INSTANCE.textShadow
             ? "ctt-health-display.config.value.on" : "ctt-health-display.config.value.off"));
+   }
+
+   private Component forkHudStyleText() {
+      return forkOption("ctt-health-display.config.option.fork_hud_style",
+         Component.translatable(ModConfig.INSTANCE.hudStyle == 1
+            ? "ctt-health-display.config.value.fork_hud_style.fork"
+            : "ctt-health-display.config.value.fork_hud_style.upstream"));
    }
 
    private Component forkShieldStyleText() {
