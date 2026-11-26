@@ -326,11 +326,12 @@ public final class MobBarScreenRenderer {
         pose.pushMatrix();
         pose.translate((float) gx, (float) gy);
         pose.scale((float) unit, (float) unit);
-        context.fill(-halfOld, (int) BAR_TOP, halfOld, (int) (BAR_TOP + BAR_H), EMPTY_FILL);
+        context.fill(-halfOld, (int) BAR_TOP, halfOld, (int) (BAR_TOP + BAR_H),
+                withAlpha(EMPTY_FILL, ModConfig.INSTANCE.mobBarOpacity));
         int fillOld = (int) Math.round(2.0 * halfOld * pct / 100.0);
         if (fillOld > 0) {
             context.fill(-halfOld, (int) BAR_TOP, -halfOld + fillOld, (int) (BAR_TOP + BAR_H),
-                    dimAlpha(getMobBarColor(pct), dim));
+                    withAlpha(dimAlpha(getMobBarColor(pct), dim), ModConfig.INSTANCE.mobBarOpacity));
         }
         pose.popMatrix();
 
@@ -491,11 +492,18 @@ public final class MobBarScreenRenderer {
         pose.scale((float) ts, (float) ts);
         int x = center ? -font.width(s) / 2 : 0;
         // 字体 8~9px 高：-4 让文字垂直居中在锚点上（旧 billboard 文字语义）
-        context.text(font, s, x, -4, color, true);
+        context.text(font, s, x, -4, withAlpha(color, ModConfig.INSTANCE.mobTextOpacity),
+                ModConfig.INSTANCE.textShadow);
         pose.popMatrix();
     }
 
     /** 完全不透明的"调暗"：RGB 各乘 dim/255，alpha 恒 FF。 */
+    /** 按不透明度改写 alpha 通道（0..1）。 */
+    private static int withAlpha(int argb, double opacity) {
+        int a = (int) Math.round(Math.max(0.0, Math.min(1.0, opacity)) * 255);
+        return (argb & 0x00FFFFFF) | (a << 24);
+    }
+
     private static int dimAlpha(int rgb, int dim) {
         int r = ((rgb >> 16) & 0xFF) * dim / 0xFF;
         int g = ((rgb >> 8) & 0xFF) * dim / 0xFF;

@@ -229,6 +229,12 @@ public class TeammateWorldRenderer {
                           right.z * (x * S) + up.z * (-y * S));
     }
 
+    /** 按不透明度改写 alpha 通道（0..1）。 */
+    private static int withAlpha(int argb, double opacity) {
+        int a = (int) Math.round(Math.max(0.0, Math.min(1.0, opacity)) * 255);
+        return (argb & 0x00FFFFFF) | (a << 24);
+    }
+
     private static void quad(Vec3 center, Vec3 right, Vec3 up, Vec3 toCam, double x0, double x1,
                              double y0, double y1, int argb, double towardCam) {
         Vec3 a = anchorOffset(center, right, up, x0, y0);
@@ -242,13 +248,14 @@ public class TeammateWorldRenderer {
             c = c.add(toCam.x * o, toCam.y * o, toCam.z * o);
             d = d.add(toCam.x * o, toCam.y * o, toCam.z * o);
         }
-        Gizmos.rect(a, b, c, d, GizmoStyle.fill(argb));
+        Gizmos.rect(a, b, c, d, GizmoStyle.fill(withAlpha(argb, ModConfig.INSTANCE.teamBarOpacity)));
     }
 
     // v8.5.6：删除描边 outline()——队友条不再画边框（用户反馈"只剩一圈空框很莫名"）。
 
     private static void text(Vec3 pos, String string, int argb) {
-        Gizmos.billboardText(string, pos, TextGizmo.Style.forColor(argb));
+        Gizmos.billboardText(string, pos,
+                TextGizmo.Style.forColor(withAlpha(argb, ModConfig.INSTANCE.teamTextOpacity)));
     }
 
     // ── 查找 / 配色（与旧版一致） ──

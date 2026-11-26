@@ -130,6 +130,12 @@ public class ModConfig {
     public boolean showStatsOutsideInventory = true;
     public boolean showStatsInInventory = true;
     public boolean showShieldCooldown = true;
+    // 1.5.11 移植：不透明度 + 文字阴影（本 fork 的显示设置）
+    public double mobBarOpacity = 0.65;
+    public double mobTextOpacity = 1.00;
+    public double teamBarOpacity = 0.65;
+    public double teamTextOpacity = 1.00;
+    public boolean textShadow = false;
     /** 统计表最大列数（r73 新代码引用）。 */
     public static final int MAX_STATS_COLUMNS = 3;
     /** r73 新增：Lore 悬浮窗跟随鼠标（false = 固定贴背包左侧）。 */
