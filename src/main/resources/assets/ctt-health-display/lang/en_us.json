@@ -111,5 +111,15 @@
   "ctt-health-display.config.server.info.suspect_victims": "\u00a78Suspect victims: %s",
 
   "ctt-health-display.command.reload.success": "Reloaded config/ctt-health-display.json (hide HUD on Berserk: %s)",
-  "ctt-health-display.command.reload.no_file": "\u00a77Config file not found; using defaults."
+  "ctt-health-display.command.reload.no_file": "\u00a77Config file not found; using defaults.",
+  "ctt-health-display.config.option.fork_mob_bar_opacity": "Mob bar opacity: %s",
+  "ctt-health-display.config.option.fork_mob_text_opacity": "Mob text opacity: %s",
+  "ctt-health-display.config.option.fork_team_bar_opacity": "Teammate bar opacity: %s",
+  "ctt-health-display.config.option.fork_team_text_opacity": "Teammate text opacity: %s",
+  "ctt-health-display.config.option.fork_text_shadow": "Text shadow: %s",
+  "ctt-health-display.config.option.fork_shield_style": "Shield style: %s",
+  "ctt-health-display.config.option.fork_shield_scale": "Shield scale: %s",
+  "ctt-health-display.config.option.fork_shield_opacity": "Shield opacity: %s",
+  "ctt-health-display.config.value.fork_style_bar": "Bar",
+  "ctt-health-display.config.value.fork_style_texture": "Texture"
 }

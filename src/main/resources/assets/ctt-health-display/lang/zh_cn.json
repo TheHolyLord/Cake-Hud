@@ -111,5 +111,15 @@
   "ctt-health-display.config.server.info.suspect_victims": "\u00a78可疑受害者: %s",
 
   "ctt-health-display.command.reload.success": "已重新加载 config/ctt-health-display.json（癫狂时隐藏HUD: %s）",
-  "ctt-health-display.command.reload.no_file": "\u00a77未找到配置文件，已使用默认值；保存游戏设置后会写入磁盘。"
+  "ctt-health-display.command.reload.no_file": "\u00a77未找到配置文件，已使用默认值；保存游戏设置后会写入磁盘。",
+  "ctt-health-display.config.option.fork_mob_bar_opacity": "怪物血条不透明度：%s",
+  "ctt-health-display.config.option.fork_mob_text_opacity": "怪物文字不透明度：%s",
+  "ctt-health-display.config.option.fork_team_bar_opacity": "队友血条不透明度：%s",
+  "ctt-health-display.config.option.fork_team_text_opacity": "队友文字不透明度：%s",
+  "ctt-health-display.config.option.fork_text_shadow": "文字阴影：%s",
+  "ctt-health-display.config.option.fork_shield_style": "盾牌样式：%s",
+  "ctt-health-display.config.option.fork_shield_scale": "盾牌缩放：%s",
+  "ctt-health-display.config.option.fork_shield_opacity": "盾牌不透明度：%s",
+  "ctt-health-display.config.value.fork_style_bar": "小条",
+  "ctt-health-display.config.value.fork_style_texture": "贴图"
 }

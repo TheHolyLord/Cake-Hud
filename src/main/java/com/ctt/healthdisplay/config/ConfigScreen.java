@@ -211,6 +211,70 @@ public class ConfigScreen extends Screen {
          this.minecraft.gui.setScreen(new ServerConfigScreen(this));
       }).bounds(x, y, btnW, 20).build());
       y += 20;
+
+      // ── 本 fork 显示设置 ──
+      y += 10;
+      this.optionButtons.add(Button.builder(forkOption("ctt-health-display.config.option.fork_mob_bar_opacity",
+            forkPercent(ModConfig.INSTANCE.mobBarOpacity)), btn -> {
+         ModConfig.INSTANCE.mobBarOpacity = forkNextStep(FORK_OPACITY_STEPS, ModConfig.INSTANCE.mobBarOpacity);
+         ModConfig.INSTANCE.save();
+         btn.setMessage(forkOption("ctt-health-display.config.option.fork_mob_bar_opacity",
+               forkPercent(ModConfig.INSTANCE.mobBarOpacity)));
+      }).bounds(x, y, btnW, 20).build());
+      y += 24;
+      this.optionButtons.add(Button.builder(forkOption("ctt-health-display.config.option.fork_mob_text_opacity",
+            forkPercent(ModConfig.INSTANCE.mobTextOpacity)), btn -> {
+         ModConfig.INSTANCE.mobTextOpacity = forkNextStep(FORK_OPACITY_STEPS, ModConfig.INSTANCE.mobTextOpacity);
+         ModConfig.INSTANCE.save();
+         btn.setMessage(forkOption("ctt-health-display.config.option.fork_mob_text_opacity",
+               forkPercent(ModConfig.INSTANCE.mobTextOpacity)));
+      }).bounds(x, y, btnW, 20).build());
+      y += 24;
+      this.optionButtons.add(Button.builder(forkOption("ctt-health-display.config.option.fork_team_bar_opacity",
+            forkPercent(ModConfig.INSTANCE.teamBarOpacity)), btn -> {
+         ModConfig.INSTANCE.teamBarOpacity = forkNextStep(FORK_OPACITY_STEPS, ModConfig.INSTANCE.teamBarOpacity);
+         ModConfig.INSTANCE.save();
+         btn.setMessage(forkOption("ctt-health-display.config.option.fork_team_bar_opacity",
+               forkPercent(ModConfig.INSTANCE.teamBarOpacity)));
+      }).bounds(x, y, btnW, 20).build());
+      y += 24;
+      this.optionButtons.add(Button.builder(forkOption("ctt-health-display.config.option.fork_team_text_opacity",
+            forkPercent(ModConfig.INSTANCE.teamTextOpacity)), btn -> {
+         ModConfig.INSTANCE.teamTextOpacity = forkNextStep(FORK_OPACITY_STEPS, ModConfig.INSTANCE.teamTextOpacity);
+         ModConfig.INSTANCE.save();
+         btn.setMessage(forkOption("ctt-health-display.config.option.fork_team_text_opacity",
+               forkPercent(ModConfig.INSTANCE.teamTextOpacity)));
+      }).bounds(x, y, btnW, 20).build());
+      y += 24;
+      this.optionButtons.add(Button.builder(this.forkShadowText(), btn -> {
+         ModConfig.INSTANCE.textShadow = !ModConfig.INSTANCE.textShadow;
+         ModConfig.INSTANCE.save();
+         btn.setMessage(this.forkShadowText());
+      }).bounds(x, y, btnW, 20).build());
+      y += 24;
+      this.optionButtons.add(Button.builder(this.forkShieldStyleText(), btn -> {
+         ModConfig.INSTANCE.shieldTextureStyle = !ModConfig.INSTANCE.shieldTextureStyle;
+         ModConfig.INSTANCE.save();
+         btn.setMessage(this.forkShieldStyleText());
+      }).bounds(x, y, btnW, 20).build());
+      y += 24;
+      this.optionButtons.add(Button.builder(forkOption("ctt-health-display.config.option.fork_shield_scale",
+            forkScaleText(ModConfig.INSTANCE.shieldScale)), btn -> {
+         ModConfig.INSTANCE.shieldScale = forkNextStep(FORK_SCALE_STEPS, ModConfig.INSTANCE.shieldScale);
+         ModConfig.INSTANCE.save();
+         btn.setMessage(forkOption("ctt-health-display.config.option.fork_shield_scale",
+               forkScaleText(ModConfig.INSTANCE.shieldScale)));
+      }).bounds(x, y, btnW, 20).build());
+      y += 24;
+      this.optionButtons.add(Button.builder(forkOption("ctt-health-display.config.option.fork_shield_opacity",
+            forkPercent(ModConfig.INSTANCE.shieldOpacity)), btn -> {
+         ModConfig.INSTANCE.shieldOpacity = forkNextStep(FORK_OPACITY_STEPS, ModConfig.INSTANCE.shieldOpacity);
+         ModConfig.INSTANCE.save();
+         btn.setMessage(forkOption("ctt-health-display.config.option.fork_shield_opacity",
+               forkPercent(ModConfig.INSTANCE.shieldOpacity)));
+      }).bounds(x, y, btnW, 20).build());
+      y += 20;
+
       this.optionContentHeight = y - 36;
       this.optionScrollOffset = clamp(this.optionScrollOffset, 0, this.maxOptionScroll());
 
@@ -232,6 +296,47 @@ public class ConfigScreen extends Screen {
       this.addRenderableWidget(
          Button.builder(Component.translatable("ctt-health-display.config.btn.done"), btn -> this.saveAndClose()).bounds(cx + 2, bottomY, 100, 20).build()
       );
+   }
+
+   // ── 本 fork 移植：不透明度 / 文字阴影 / 盾牌贴图控件 ──
+   private static final double[] FORK_OPACITY_STEPS = new double[]{0.25, 0.4, 0.5, 0.65, 0.75, 0.9, 1.0};
+   private static final double[] FORK_SCALE_STEPS = new double[]{0.5, 0.7, 0.85, 1.0, 1.25, 1.5};
+
+   private static double forkNextStep(double[] steps, double current) {
+      int best = 0;
+
+      for (int i = 0; i < steps.length; i++) {
+         if (Math.abs(steps[i] - current) < Math.abs(steps[best] - current)) {
+            best = i;
+         }
+      }
+
+      return steps[(best + 1) % steps.length];
+   }
+
+   private static Component forkPercent(double value) {
+      return Component.literal(Math.round(value * 100.0) + "%");
+   }
+
+   private static Component forkScaleText(double value) {
+      return Component.literal(String.format(java.util.Locale.ROOT, "%.2f×", value));
+   }
+
+   private static Component forkOption(String key, Component value) {
+      return Component.translatable(key, new Object[]{value});
+   }
+
+   private Component forkShadowText() {
+      return forkOption("ctt-health-display.config.option.fork_text_shadow",
+         Component.translatable(ModConfig.INSTANCE.textShadow
+            ? "ctt-health-display.config.value.on" : "ctt-health-display.config.value.off"));
+   }
+
+   private Component forkShieldStyleText() {
+      return forkOption("ctt-health-display.config.option.fork_shield_style",
+         Component.translatable(ModConfig.INSTANCE.shieldTextureStyle
+            ? "ctt-health-display.config.value.fork_style_texture"
+            : "ctt-health-display.config.value.fork_style_bar"));
    }
 
    private Component shieldCooldownBtnText() {
