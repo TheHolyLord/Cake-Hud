@@ -103,6 +103,7 @@ public final class MobHealthBroadcaster {
 
     /** per-player 上次推送列表，用于差量判定。玩家下线时由 {@link #onPlayerDisconnect} 清理。 */
     private static final Map<UUID, List<MobHealthPayload.Entry>> LAST_SENT = new HashMap<>();
+    private static final Map<UUID, Set<UUID>> LAST_NPCS = new HashMap<>();
 
     /** per-player 上次推送的玩家属性，CrackedHearts 保留正负原值；PinkHearts 字段仅兼容旧协议。 */
     private static final Map<UUID, int[]> LAST_PLAYER_STATS = new HashMap<>();
@@ -199,6 +200,9 @@ public final class MobHealthBroadcaster {
         double boxSize = SCAN_RADIUS * 2;
         AABB box = AABB.ofSize(pos, boxSize, boxSize, boxSize);
 
+        var npcChannel = com.ctt.healthdisplay.network.NpcHealthVisibilityPayload.ID;
+        boolean syncNpcs = ServerPlayNetworking.canSend(player, npcChannel);
+        List<Entity> npcs = new ArrayList<>();
         List<Candidate> candidates = new ArrayList<>();
         for (Entity e : world.getEntities((Entity) null, box, ent ->
                 ent instanceof LivingEntity
@@ -206,6 +210,7 @@ public final class MobHealthBroadcaster {
                         && !(ent instanceof ArmorStand)
                         && ent.isAlive()
                         && !ent.isRemoved())) {
+            if (syncNpcs && e.entityTags().contains("NPC")) npcs.add(e);
             int hp = ScoreboardReader.readOrZero(sb, "AllHearts", e);
             if (hp <= 0) hp = ScoreboardReader.readOrZero(sb, "RedHearts", e);
             int maxHp = ScoreboardReader.readOrZero(sb, "MaxHP", e);
@@ -215,6 +220,17 @@ public final class MobHealthBroadcaster {
             if (maxHp <= 0) maxHp = hp;  // 只写了 RedHearts 的自定义 mob：用当前值做 maxHp 兜底
             double dist = e.position().distanceToSqr(pos);
             candidates.add(new Candidate(e, hp, maxHp, dist));
+        }
+
+        if (syncNpcs) {
+            npcs.sort(Comparator.comparingDouble(npc -> npc.position().distanceToSqr(pos)));
+            Set<UUID> ids = new HashSet<>();
+            int limit = Math.min(npcs.size(), com.ctt.healthdisplay.network.NpcHealthVisibilityPayload.MAX_ENTITIES);
+            for (int i = 0; i < limit; i++) ids.add(npcs.get(i).getUUID());
+            Set<UUID> previous = LAST_NPCS.put(player.getUUID(), ids);
+            if (!ids.equals(previous)) {
+                ServerPlayNetworking.send(player, new com.ctt.healthdisplay.network.NpcHealthVisibilityPayload(ids));
+            }
         }
 
         if (candidates.isEmpty()) {
@@ -227,7 +243,9 @@ public final class MobHealthBroadcaster {
             candidates = new ArrayList<>(candidates.subList(0, MAX_ENTRIES_PER_PLAYER));
         }
 
-        UUID nearestUuid = candidates.get(0).entity.getUUID();
+        UUID nearestUuid = candidates.stream()
+                .filter(candidate -> !candidate.entity.entityTags().contains("NPC"))
+                .findFirst().orElse(candidates.get(0)).entity.getUUID();
 
         List<MobHealthPayload.Entry> entries = new ArrayList<>(candidates.size());
         for (Candidate c : candidates) {
@@ -436,6 +454,7 @@ public final class MobHealthBroadcaster {
 
     /** 客户端 DISCONNECT 事件的服务端侧钩子，防止 LAST_SENT 泄漏占用同 UUID 重连后残留。 */
     public static void onPlayerDisconnect(UUID uuid) {
+        LAST_NPCS.remove(uuid);
         LAST_SENT.remove(uuid);
         LAST_PLAYER_STATS.remove(uuid);
         LAST_PUSH_ROUND.remove(uuid);

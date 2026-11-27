@@ -23,7 +23,7 @@ out/
 Thumbs.db
 desktop.ini
 
-# 本地运行时生成的配置与存档（不纳入版本管理）
-config/
+# 本地运行时生成的配置与存档（不纳入版本管理，仅忽略仓库根目录）
+/config/
 *.log
 hs_err_pid*

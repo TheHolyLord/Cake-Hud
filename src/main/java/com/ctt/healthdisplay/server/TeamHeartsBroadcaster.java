@@ -109,11 +109,12 @@ public final class TeamHeartsBroadcaster {
                 int blue  = ScoreboardReader.readOrZero(sb, "BlueHearts",  p);
                 int maxHp = ScoreboardReader.readOrZero(sb, "MaxHP",       p);
                 int lives = ScoreboardReader.readOrZero(sb, "Lives",       p);
+                int cracked = Math.max(0, ScoreboardReader.readOrZero(sb, "CrackedHearts", p));
                 // 全 0 玩家（未参与本局 / 还在 lobby）也带上，否则切局时客户端 cache 不会
                 // 失鲜 → 老数据残留。带上让客户端能看到他确实有 entry 但全 0。
                 entries.add(new TeamHeartsPayload.Entry(
                         p.getName().getString(),
-                        red, soul, black, blue, maxHp, lives));
+                        red, soul, black, blue, maxHp, lives, cracked));
             } catch (Throwable t) {
                 LOGGER.warn("[CTT TeamHearts] read {} failed: {}",
                         p.getName().getString(), t.toString());
@@ -174,18 +175,6 @@ public final class TeamHeartsBroadcaster {
 
     private static boolean entriesEqual(List<TeamHeartsPayload.Entry> a,
                                          List<TeamHeartsPayload.Entry> b) {
-        if (a == null) return b == null || b.isEmpty();
-        if (a.size() != b.size()) return false;
-        for (int i = 0; i < a.size(); i++) {
-            TeamHeartsPayload.Entry x = a.get(i), y = b.get(i);
-            if (!Objects.equals(x.name(), y.name())) return false;
-            if (x.redHearts()   != y.redHearts())   return false;
-            if (x.soulHearts()  != y.soulHearts())  return false;
-            if (x.blackHearts() != y.blackHearts()) return false;
-            if (x.blueHearts()  != y.blueHearts())  return false;
-            if (x.maxHp()       != y.maxHp())       return false;
-            if (x.lives()       != y.lives())       return false;
-        }
-        return true;
+        return Objects.equals(a, b);
     }
 }

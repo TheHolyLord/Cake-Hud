@@ -11,27 +11,68 @@
 | `teammateX` | float | `0.01` | 队友面板 X 坐标（屏幕比例 0~1） |
 | `teammateY` | float | `0.33` | 队友面板 Y 坐标 |
 | `horizontalLayout` | bool | `false` | 队友条是否横向布局 |
+| `teammateAlignRight` | bool | `false` | 队友列表右对齐（`false` 左对齐） |
 | `statsX` | float | `0.005` | 属性面板 X 坐标 |
 | `statsY` | float | `0.005` | 属性面板 Y 坐标 |
+| `statsAlignRight` | bool | `false` | 属性面板右对齐（`false` 左对齐） |
 | `statsColumns` | int | `2` | 属性栏列数（上限 `MAX_STATS_COLUMNS = 3`） |
 | `showStatsOutsideInventory` | bool | `true` | 背包关闭时是否显示属性栏 |
 | `showStatsInInventory` | bool | `false` | 背包打开时是否显示属性栏 |
+| `statsOpacity` | int | `100` | 属性面板不透明度（0–100） |
 | `loreTooltipAtCursor` | bool | `false` | 物品描述窗口位置：`false` 背包左侧 / `true` 跟随鼠标 |
-| `mobBarHalfWidth` | int | `60` | 怪物血条半宽 |
-| `teammateBarHalfWidth` | int | `40` | 队友血条半宽 |
+| `enemyBarLength` | int | `36` | 敌人头顶血条长度（固定像素，不随数字位数变化） |
+| `teammateBarHalfWidth` | int | `40` | 队友头顶血条半宽；界面上以 30–100 的长度滑块调整（存半宽） |
+
+### 屏幕标题
+
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `titleOffsetX` / `titleOffsetY` | int | `0` | 主标题水平 / 垂直偏移 |
+| `subtitleOffsetX` / `subtitleOffsetY` | int | `0` | 副标题水平 / 垂直偏移 |
+| `titleSize` | int | `100` | 主标题缩放（百分比） |
+| `subtitleSize` | int | `100` | 副标题缩放（百分比） |
+| `titleOpacity` | double | `1.0` | 主标题不透明度（0–1） |
+| `subtitleOpacity` | double | `1.0` | 副标题不透明度（0–1） |
+
+旧配置中标题与副标题共用的位置字段在升级时迁移并沿用到两行，之后可分别调节。
 
 ### 显示开关
 
 | 字段 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `showTeammateHeadHP` | bool | `true` | 队友头顶血量 |
-| `mobHeadHPMode` | int | `0` | 怪物血量：`0` 全部 / `1` 仅最近 / `2` 关闭 |
-| `showShieldCooldown` | bool | `true` | 盾牌冷却条 |
-| `showTeammateLayeredHearts` | bool | `true` | 队友四色心叠加外观；`false` 回退多槽老外观 |
+| `showPlayerHeadBar` | bool | `true` | 玩家头顶血条 |
+| `showPlayerHeadNumbers` | bool | `true` | 玩家头顶血量数字 |
+| `showPlayerHeadHeartCounts` | bool | `true` | 玩家头顶各类心数量 |
+| `showPlayerHeadCrackedCount` | bool | `true` | 玩家头顶碎心数量 |
+| `showPlayerHeadEffectiveMax` | bool | `true` | 玩家头顶碎心后上限 |
+| `showMobHeadHP` | bool | `true` | 敌人头顶血量总开关 |
+| `mobHeadHPMode` | int | `0` | 敌人血量：`0` 全部 / `1` 仅最近 / `2` 关闭 |
+| `showEnemyName` / `showEnemyArmor` / `showEnemyExtraHearts` | bool | `true` | 敌人名字 / 护甲抗性 / 额外心 |
+| `showEnemyHealthNumbers` / `showEnemyBar` | bool | `true` | 敌人血量数字 / 血条 |
+| `showEnemyHealthDuringEffects` | bool | `true` | 癫狂 / 诅咒期间仍显示敌人血量 |
+| `suppressNpcHealth` | bool | `true` | 隐藏 NPC 头顶血量 |
+| `enemyHeadDistance` / `playerHeadDistance` | int | `48` | 敌人 / 玩家头顶血条可见距离（格） |
+| `enemyBarOpacity` / `enemyTextOpacity` | int | `65` / `100` | 敌人血条 / 文字不透明度 |
+| `playerBarOpacity` / `playerTextOpacity` | int | `65` / `100` | 玩家血条 / 文字不透明度 |
+| `compactHudNumbers` | bool | `true` | 所有数据中的大数字简写（`1500 → 1.5K`、`2400000 → 2.4M`，支持 `B` / `T`） |
+| `showTeammateLayeredHearts` | bool | `true` | 队友分层心外观（红 / 碎 / 魂 / 黑 / 蓝） |
 | `hidePersonalBar` | bool | `true` | 隐藏自身 Boss 栏 |
 | `hideTeamBar` | bool | `true` | 隐藏队友 Boss 栏 |
 | `hideMobBars` | bool | `false` | 隐藏怪物 Boss 栏 |
 | `hideHudOnBerserk` | bool | `true` | 癫狂状态隐藏全部模组 HUD（不在 ModMenu 暴露，手改 JSON + `/ctthd reload`） |
+
+### 盾牌冷却与箭矢预览
+
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `showShieldCooldown` | bool | `true` | 盾牌冷却提示 |
+| `shieldHorizontal` | bool | `false` | `true` 横向长条 / `false` 竖向指示器 |
+| `shieldSize` | int | `100` | 指示器尺寸（百分比） |
+| `shieldOpacity` | int | `65` | 不透明度（0–100） |
+| `shieldX` / `shieldY` | float | 默认位置 | 预览中可拖动 |
+| `showArrowPreview` | bool | `true` | 持弓时显示下一支箭 |
+| `arrowPreviewX` / `arrowPreviewY` | float | `-1` | 箭矢提示位置；`-1` 表示使用默认（跟随快捷栏） |
 
 ### 属性刷新
 

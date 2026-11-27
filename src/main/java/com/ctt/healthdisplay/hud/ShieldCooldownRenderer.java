@@ -1,103 +1,94 @@
 package com.ctt.healthdisplay.hud;
 
+import com.ctt.healthdisplay.CttHealthDisplay;
 import com.ctt.healthdisplay.client.ItemCategoryProbe;
 import com.ctt.healthdisplay.config.ModConfig;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.level.GameType;
-import net.minecraft.world.item.ItemStack;
 
-/**
- * v8.6.1 · 盾牌冷却条（用户拍板的新机制）。
- *
- * <p>手上（主手优先、其次副手）拿着 Shield 分类物品时，在准星下方画一条耐久进度条：
- * 进度 = 剩余耐久比（数据包用盾牌耐久表达冷却，挡一次掉一截、修复后回满）。
- *
- * <h2>位置：为什么是 准星 + 27</h2>
- * <p>26.3 原版准星攻击冷却指示器（{@code Hud.extractCrosshair}，字节码核实）画在
- * {@code x = w/2 - 8, y = h/2 + 9}：进度态 16x4，"满蓄力/有目标"态用 16x16 的 FULL
- * sprite，最坏占到 {@code h/2 + 25}。本条顶边取 {@code h/2 + 27}，两种状态都压不到；
- * 全部坐标基于 GUI 缩放后的屏幕中心，任何分辨率 / GUI Scale 下相对间距恒定，
- * 低分辨率也不会和原版指示器或物品名（热栏上方 h-41 一带）重叠。
- *
- * <h2>显示门槛</h2>
- * <p>与 {@link com.ctt.healthdisplay.client.HudRenderGate} 无关——用户明确要求
- * 癫狂（Berserk）/ Curse of the Unknown 期间本条照常显示（那两个状态只是把
- * bossbar 文本换成装饰内容，物品耐久通道不受影响）。F1 隐藏 HUD、打开界面、
- * 旁观模式时跟随原版准星一起消失。
- */
+/** 按手持盾牌的剩余耐久显示冷却进度。 */
 public final class ShieldCooldownRenderer {
-
-    private static final int BAR_W = 40;
-    private static final int BAR_H = 3;
-    /** 顶边相对屏幕中心的偏移；见类注释的位置推导（避开 16x16 满蓄力指示器）。 */
-    // v8.6.3 · 再向下留出字幕安全间距。
-    private static final int OFFSET_Y = 32;
-
-    private static final int BAR_BORDER = 0xFF000000;
-    private static final int EMPTY_FILL = 0xFF181818;
-    // v8.6.2 · 冷却进度颜色：0=红，0.5=黄，1=绿。
-    private static final int COOLDOWN_RED = 0xFFE33D3D;
-    private static final int COOLDOWN_YELLOW = 0xFFFFD83D;
-    private static final int COOLDOWN_GREEN = 0xFF3DDE58;
-
     private static volatile boolean subtitlesVisible;
 
     private ShieldCooldownRenderer() {}
 
-    /** 由原版 SubtitleOverlay.extractRenderState 返回点更新，避免读取时机落后一帧。 */
+    public record Bounds(int left, int top, int width, int height, float scale) {}
+
     public static void setSubtitlesVisible(boolean visible) {
         subtitlesVisible = visible;
     }
 
+    public static Bounds bounds(int screenWidth, int screenHeight, float x, float y, boolean horizontal, int size) {
+        int baseWidth = horizontal ? 42 : 12;
+        int baseHeight = horizontal ? 5 : 30;
+        float scale = Math.min(size / 100f, Math.min(screenWidth / (float) baseWidth, screenHeight / (float) baseHeight));
+        int width = Math.round(baseWidth * scale);
+        int height = Math.round(baseHeight * scale);
+        int left = Math.clamp(Math.round(screenWidth * x) - width / 2, 0, screenWidth - width);
+        int defaultTop = screenHeight / 2 + (horizontal ? 31 : 32);
+        int top = Math.clamp(y < 0 ? defaultTop : Math.round(screenHeight * y) - height / 2, 0, screenHeight - height);
+        return new Bounds(left, top, width, height, scale);
+    }
+
     public static void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
-        if (!ModConfig.INSTANCE.showShieldCooldown) return;
+        ModConfig config = ModConfig.INSTANCE;
+        if (!config.showShieldCooldown || !CttHealthDisplay.hudEnabled) return;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null || mc.gui == null) return;
-        // 全局 HUD 开关（按键切换）关掉时本条也关；但本条不参与
-        // HudRenderGate 的癫狂 / Curse of the Unknown 抑制（用户拍板）。
-        if (!com.ctt.healthdisplay.CttHealthDisplay.hudEnabled) return;
-        if (mc.gui.hud.isHidden()) return;
-        if (mc.gui.screen() != null) return;
+        if (mc.player == null || mc.level == null || mc.gui.hud.isHidden() || mc.gui.screen() != null) return;
         if (mc.gameMode != null && mc.gameMode.getPlayerMode() == GameType.SPECTATOR) return;
-
-        ItemStack shield = ItemCategoryProbe.heldShield(mc);
+        var shield = ItemCategoryProbe.heldShield(mc);
         if (shield == null || shield.isEmpty()) return;
-
         float progress = ItemCategoryProbe.shieldProgress(shield);
-        // 冷却已完成时，字幕优先：原版字幕通常位于准星下方，暂时不画这条
-        // 绿色满条；一旦盾牌重新受损进入冷却，条立即恢复，即使字幕还在。
-        if (progress >= 0.999f && subtitlesVisible) return;
-
-        int w = context.guiWidth();
-        int h = context.guiHeight();
-        int cx = w / 2;
-        int top = h / 2 + OFFSET_Y;
-        int left = cx - BAR_W / 2;
-
-        context.fill(left - 1, top - 1, left + BAR_W + 1, top + BAR_H + 1, BAR_BORDER);
-        context.fill(left, top, left + BAR_W, top + BAR_H, EMPTY_FILL);
-        int fillPx = Math.round(BAR_W * progress);
-        if (fillPx > 0) {
-            context.fill(left, top, left + fillPx, top + BAR_H, cooldownColor(progress));
-        }
+        if (progress >= 0.999f && subtitlesVisible && config.shieldY < 0) return;
+        Bounds bounds = bounds(context.guiWidth(), context.guiHeight(), config.shieldX, config.shieldY,
+                config.shieldHorizontal, config.shieldSize);
+        draw(context, bounds, config.shieldHorizontal, progress, config.shieldOpacity);
     }
 
-
-    private static int cooldownColor(float progress) {
-        float p = Math.max(0f, Math.min(1f, progress));
-        if (p <= 0.5f) {
-            return interpolate(COOLDOWN_RED, COOLDOWN_YELLOW, p * 2f);
-        }
-        return interpolate(COOLDOWN_YELLOW, COOLDOWN_GREEN, (p - 0.5f) * 2f);
+    public static void draw(GuiGraphicsExtractor context, Bounds bounds, boolean horizontal, float progress, int opacity) {
+        float p = Math.clamp(progress, 0f, 1f);
+        var pose = context.pose();
+        pose.pushMatrix();
+        pose.translate(bounds.left(), bounds.top());
+        pose.scale(bounds.scale(), bounds.scale());
+        if (horizontal) drawHorizontal(context, p, opacity);
+        else drawVertical(context, p, opacity);
+        pose.popMatrix();
     }
 
-    private static int interpolate(int from, int to, float amount) {
-        float t = Math.max(0f, Math.min(1f, amount));
-        int r = Math.round(((from >> 16) & 0xFF) + (((to >> 16) & 0xFF) - ((from >> 16) & 0xFF)) * t);
-        int g = Math.round(((from >> 8) & 0xFF) + (((to >> 8) & 0xFF) - ((from >> 8) & 0xFF)) * t);
-        int b = Math.round((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * t);
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    private static void drawHorizontal(GuiGraphicsExtractor context, float p, int opacity) {
+        int filled = Math.round(40 * p);
+        int color = p <= 0.5f ? interpolate(0xFFE33D3D, 0xFFFFD83D, 2 * p)
+                : interpolate(0xFFFFD83D, 0xFF3DDE58, 2 * p - 1);
+        context.fill(0, 0, 42, 1, HeadHealthStyle.alpha(0xFF000000, opacity));
+        context.fill(0, 4, 42, 5, HeadHealthStyle.alpha(0xFF000000, opacity));
+        context.fill(0, 1, 1, 4, HeadHealthStyle.alpha(0xFF000000, opacity));
+        context.fill(41, 1, 42, 4, HeadHealthStyle.alpha(0xFF000000, opacity));
+        if (filled > 0) context.fill(1, 1, 1 + filled, 4, HeadHealthStyle.alpha(color, opacity));
+        if (filled < 40) context.fill(1 + filled, 1, 41, 4, HeadHealthStyle.alpha(0xFF181818, opacity));
+    }
+
+    private static void drawVertical(GuiGraphicsExtractor context, float p, int opacity) {
+        int filled = Math.round(24 * p);
+        int color = p < 0.4f ? 0xFFEC5551 : p < 0.75f ? 0xFFF2C84B : 0xFF66D87D;
+        context.fill(1, 0, 11, 2, HeadHealthStyle.alpha(0xFFD9DDE4, opacity));
+        context.fill(1, 28, 11, 30, HeadHealthStyle.alpha(0xFF777F8C, opacity));
+        context.fill(0, 2, 2, 28, HeadHealthStyle.alpha(0xFFD9DDE4, opacity));
+        context.fill(10, 2, 12, 28, HeadHealthStyle.alpha(0xFF777F8C, opacity));
+        context.fill(2, 2, 10, 27 - filled, HeadHealthStyle.alpha(0xFF242630, opacity));
+        if (filled > 0) {
+            context.fillGradient(2, 27 - filled, 10, 27,
+                    HeadHealthStyle.alpha(color, opacity), HeadHealthStyle.alpha(HeadHealthStyle.tone(color, 3), opacity));
+        }
+        context.fill(2, 27, 10, 28, HeadHealthStyle.alpha(0xFF242630, opacity));
+    }
+
+    private static int interpolate(int from, int to, float t) {
+        int r = Math.round((from >> 16 & 255) * (1 - t) + (to >> 16 & 255) * t);
+        int g = Math.round((from >> 8 & 255) * (1 - t) + (to >> 8 & 255) * t);
+        int b = Math.round((from & 255) * (1 - t) + (to & 255) * t);
+        return 0xFF000000 | r << 16 | g << 8 | b;
     }
 }

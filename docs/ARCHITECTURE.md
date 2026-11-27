@@ -13,15 +13,19 @@
 ```
 com.ctt.healthdisplay
 ├── client/        客户端缓存与观测：血量 / 属性 / 怪物 / 队友心、动作栏捕获、
-│                  癫狂与诅咒识别、聊天噪声过滤、Lore 词条弹窗与装饰
+│                  癫狂与诅咒识别、聊天噪声过滤、Lore 词条弹窗与装饰、统计行标识
 │   └── probe/      归属钩子、过滤钩子、粒子观测
-├── config/        ModConfig（客户端 JSON）、ServerConfig（服务端 JSON）、
-│                  ConfigScreen、ServerConfigScreen
-├── health/        数据模型：HealthData、MobHealthData、StatsData
+├── config/        ModConfig（客户端 JSON）、ServerConfig（服务端 JSON），
+│                  以及 F8 设置界面：ConfigScreen、TitleSettingsScreen、
+│                  ShieldLayoutScreen、ArrowLayoutScreen、StatFilterScreen、
+│                  EnemyHeadOptionsScreen、PlayerHeadOptionsScreen、
+│                  ServerConfigScreen 与 PreviewDrag 预览拖动
+├── health/        数据模型：HealthData、MobHealthData、StatsData、StatLabels
 ├── hud/           渲染器与屏幕：血条、属性、怪物条、队友世界渲染、
-│                  伤害面板、统计表、弓箭预览、盾牌冷却、关卡名注册表
-├── mixin/         客户端 Mixin（BossBar、计分板、动作栏、标题字幕、Lore 界面与键盘等）
-├── network/       S2C payload 定义与 codec
+│                  伤害面板、统计表、弓箭预览、盾牌冷却、关卡名注册表，
+│                  以及 CrackedHeartIcon、HeadHealthStyle、HudNumbers
+├── mixin/         客户端 Mixin（BossBar、计分板、动作栏、标题字幕与 TitleTextMixin、Lore 界面与键盘等）
+├── network/       S2C payload 定义与 codec（含 NpcHealthVisibilityPayload）
 └── server/        服务端统计、伤害归属、击杀 / 承伤记录、广播、命令、
     ├── command/   广播开关命令
     ├── filter/    伤害过滤流水线、武器 P95 注册表、滚动窗口
@@ -38,8 +42,15 @@ com.ctt.healthdisplay
 - **服务端权威**：`MobHealthPayload` 每 5 tick 推送视野内最多 32 条活怪血量，客户端 `ClientMobHealthCache` 维护 5 秒 fresh 窗口。
 - **本地兜底**：fresh 失效时解析原版 bossbar，按 `Targetting` → `Boss` → `E` 标签与距离认领实体；实体消失超过 5 秒才清理记录，避免区块抖动丢数据。
 
-### 3. 队友四色心
-- `TeamHeartsPayload`（5 Hz）推送全队 Red / Soul / Black / Blue 心、最大生命与存活数；fresh 时绘制四色心叠加条，否则回退多槽溢出条。
+### 3. 队友分层心
+- `TeamHeartsPayload`（5 Hz）推送全队 Red / Cracked / Soul / Black / Blue 分层心、最大生命与存活数；服务端缺失时回退地图计分板数据。
+- 渲染统一走 `HeadHealthStyle`（头顶样式）与 `CrackedHeartIcon`（碎心图标），快捷栏上方、队友列表、队友头顶共用同一套配色与缩放规则。
+
+### 3.1 数字简写
+`HudNumbers` 在 `compactHudNumbers` 打开时统一格式化所有大数字（`1.5K` / `2.4M` / `B` / `T`），快捷栏状态、队友列表、属性面板、头顶血量与伤害统计共用同一入口。
+
+### 3.2 NPC 血量可见性
+服务端通过 `NpcHealthVisibilityPayload` 下发 NPC 标记，客户端据此隐藏 NPC 头顶血量（`suppressNpcHealth`）。
 
 ### 4. 伤害归属链路（服务端）
 ```
@@ -61,6 +72,12 @@ L9 未归属
 - 背包界面按 `Alt`（`LoreKeyboardMixin` 注入 `KeyboardHandler.keyPress`）调用 `toggleTooltipPin`：固定当前槽位物品描述，再按一次解除；固定状态记住槽位与物品堆叠。
 - 窗口位置由 `loreTooltipAtCursor` 控制：背包左侧或跟随鼠标；词条点击可嵌套开窗，点空白 / ESC 关闭。
 - 服务端 `TextDisplayBackgroundAccessor` 通过 `@Invoker` 读取文字显示实体背景色，`DamageProbe` 据此识别治疗粒子，辅助伤害 / 治疗归类。
+
+### 7. 设置界面（F8）
+`ConfigScreen` 作为主入口，下分标题、盾牌布局、箭矢布局、属性筛选、敌人头顶样式、玩家头顶样式等分页；`PreviewDrag` 提供统一的预览拖动，面板位置改动即时写入 `ModConfig`。
+
+### 8. 屏幕标题
+`TitleTextMixin` 拦截原版标题文本绘制，按 `titleOffsetX/Y`、`titleSize`、`titleOpacity`（副标题同名字段）调整；旧配置的共用位置在迁移时拆分到两行。
 
 ## 持久化
 

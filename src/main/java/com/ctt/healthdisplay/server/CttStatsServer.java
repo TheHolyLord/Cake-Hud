@@ -96,6 +96,8 @@ public class CttStatsServer implements ModInitializer {
         // 窗口；纯 vanilla 服务端 / 别的地图世界完全不发包，客户端 isFresh=false 自动回落
         // 老 bossbar 解析路径。详见 MobHealthBroadcaster。
         PayloadTypeRegistry.clientboundPlay().register(MobHealthPayload.ID, MobHealthPayload.CODEC);
+        var npcType = com.ctt.healthdisplay.network.NpcHealthVisibilityPayload.ID;
+        PayloadTypeRegistry.clientboundPlay().register(npcType, com.ctt.healthdisplay.network.NpcHealthVisibilityPayload.CODEC);
 
         // v8.4.0 · 服务端属性 push + 全队四色心 payload 注册。
         //   PlayerStatsPayload (1 Hz)：服务端直接拼属性面板 Component 列表，客户端绕过

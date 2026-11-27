@@ -483,9 +483,12 @@ public class HealthData {
                 if (entry.maxHp() > 0) maxHp = entry.maxHp();
                 if (entry.lives() > 0) mateLives = entry.lives();
             }
+            boolean self = name.equals(selfName);
+            Integer cracked = entry == null ? null : entry.crackedHearts();
+            if (cracked == null) cracked = readScore(client, scoreboard, name, "CrackedHearts");
             teammates.add(new TeammateData(name, hp, maxHp, mateLives,
-                    name.equals(selfName), entry != null ? entry.redHearts() : 0,
-                    soul, black, blue));
+                    self, entry != null && entry.maxHp() > 0 ? entry.redHearts() : -1,
+                    soul, black, blue, cracked != null ? Math.max(0, cracked) : self ? crackedHearts : 0));
         }
     }
 
@@ -641,22 +644,21 @@ public class HealthData {
         // 3D 头顶血条那边通过 `player == Minecraft.getInstance().player` 过滤自己，不受此字段影响。
         public final boolean isSelf;
 
-        // v8.4.0 · 服务端 TeamHeartsBroadcaster 推送时填入；服务端没装 mod 时全为 0。
-        // {@link #hasLayeredHearts()} 用 (soul|black|blue) > 0 判定是否走 4 色心叠加渲染，
-        // 这样无 mod 服务端 / 进入但未参与本局的玩家 (全 0) 自动落到老的 OVERFLOW_COLORS 路径。
+        // 服务端同步的红心，-1 代表没有可用的分项数据。
         public final int redHeartsServer;
         public final int soulHearts;
         public final int blackHearts;
         public final int blueHearts;
+        public final int crackedHearts;
 
         /** v8.3.x 兼容构造（无服务端四色心数据）。 */
         public TeammateData(String name, int hp, int maxHP, int lives, boolean isSelf) {
-            this(name, hp, maxHP, lives, isSelf, 0, 0, 0, 0);
+            this(name, hp, maxHP, lives, isSelf, -1, 0, 0, 0, 0);
         }
 
         /** v8.4.0 · 含服务端四色心数据的完整构造。 */
         public TeammateData(String name, int hp, int maxHP, int lives, boolean isSelf,
-                            int redHeartsServer, int soulHearts, int blackHearts, int blueHearts) {
+                            int redHeartsServer, int soulHearts, int blackHearts, int blueHearts, int crackedHearts) {
             this.name = name;
             this.hp = hp;
             this.maxHP = maxHP;
@@ -666,6 +668,11 @@ public class HealthData {
             this.soulHearts = soulHearts;
             this.blackHearts = blackHearts;
             this.blueHearts = blueHearts;
+            this.crackedHearts = crackedHearts;
+        }
+
+        public int effectiveMaxHp() {
+            return Math.max(0, maxHP - crackedHearts);
         }
 
         public int getPercent() {

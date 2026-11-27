@@ -47,6 +47,8 @@ public final class ClientStageDetector {
 
     /** subtitle ↔ title 配对窗口；datapack 同 tick 发，宽松到 250ms 兜住网络抖动。 */
     private static final long PAIR_WINDOW_MS = 250L;
+    // 服务端统计快照与标题分开发送，允许关卡编号晚到。
+    private static final long STAGE_MATCH_WINDOW_NANOS = 3_000_000_000L;
 
     /** 排除明显不是 floor bar 的"血条样"匹配（如 "Kirin0321 (100000/100000)"）。 */
     private static final int FLOOR_NUM_MAX = 999;
@@ -63,9 +65,20 @@ public final class ClientStageDetector {
     private static volatile StageKey currentKey = null;
     private static volatile StageLocation.Snapshot currentSnap = StageLocation.Snapshot.unknown();
 
-    // ---- subtitle 缓存（等下一个 title 来配对）----
-    private static volatile String pendingSubtitle = null;
-    private static volatile long pendingSubtitleAtMs = 0L;
+    private record Subtitle(String text, long receivedAt) {}
+    private record DungeonTitle(int tier, int floor, long receivedAt) {}
+    private record DungeonName(int tier, int floor, String text, long receivedAt) {
+        public boolean matches(StageKey key) {
+            if (key == null || key.stageType() == null) return false;
+            String type = key.stageType();
+            return (type.equals("dungeon") || type.equals("mt_dungeon") || type.startsWith("STAGE_DUNGEON@"))
+                    && Integer.toString(tier).equals(key.tier()) && Integer.toString(floor).equals(key.floor());
+        }
+    }
+
+    private static Subtitle pendingSubtitle;
+    private static DungeonTitle pendingDungeonTitle;
+    private static DungeonName dungeonName;
 
     // ---- 最近一次 floor bossbar（让 STAGE 桶也能携带 floor 数字）----
     private static volatile String lastFloorTowerName = null;
@@ -77,9 +90,11 @@ public final class ClientStageDetector {
 
     /** 由 {@link InGameHudTitleMixin} 在 vanilla 写主标题前调用。 */
     public static void onTitle(Component t) {
+        Subtitle candidate = pendingSubtitle;
+        pendingSubtitle = null;
+        pendingDungeonTitle = null;
         if (t == null) return;
         String text = stripText(t);
-        if (text.isEmpty()) return;
         Matcher m = STAGE_TITLE.matcher(text);
         if (!m.matches()) return;            // 对话 title / 其它 title，忽略
         int tier;
@@ -105,12 +120,16 @@ public final class ClientStageDetector {
                 catch (NumberFormatException e) { return; }
         }
 
-        // 配对 subtitle：title 来时回查最近 PAIR_WINDOW_MS 的缓存
-        String subtitle = "";
-        long nowMs = System.currentTimeMillis();
-        String pending = pendingSubtitle;
-        if (pending != null && (nowMs - pendingSubtitleAtMs) <= PAIR_WINDOW_MS) {
-            subtitle = pending;
+        // 地图可能先发主标题，也可能先发副标题。后到的包补齐名称即可。
+        long now = System.nanoTime();
+        String subtitle = candidate != null && withinPairWindow(candidate.receivedAt(), now) ? candidate.text() : "";
+        if (kind == StageLocation.Kind.STAGE_DUNGEON) {
+            dungeonName = null;
+            if (subtitle.isEmpty()) {
+                pendingDungeonTitle = new DungeonTitle(tier, titleFloor, now);
+            } else {
+                dungeonName = new DungeonName(tier, titleFloor, subtitle, now);
+            }
         }
 
         // 关卡名优先用 subtitle；无 subtitle 时用 "Tier-Suffix" 原始文本兜底，避免空名
@@ -140,11 +159,32 @@ public final class ClientStageDetector {
 
     /** 由 {@link InGameHudTitleMixin} 在 vanilla 写副标题前调用。 */
     public static void onSubtitle(Component t) {
-        if (t == null) return;
-        String text = stripText(t);
-        if (text.isEmpty()) return;
-        pendingSubtitle = text;
-        pendingSubtitleAtMs = System.currentTimeMillis();
+        String text = t == null ? "" : stripText(t);
+        if (text.isEmpty()) {
+            pendingSubtitle = null;
+            return;
+        }
+        long now = System.nanoTime();
+        DungeonTitle title = pendingDungeonTitle;
+        pendingDungeonTitle = null;
+        if (title != null && withinPairWindow(title.receivedAt(), now)) {
+            dungeonName = new DungeonName(title.tier(), title.floor(), text, now);
+            pendingSubtitle = null;
+        } else {
+            pendingSubtitle = new Subtitle(text, now);
+        }
+    }
+
+    private static boolean withinPairWindow(long receivedAt, long now) {
+        return now - receivedAt <= PAIR_WINDOW_MS * 1_000_000L;
+    }
+
+    public static String takeDungeonName(StageKey key) {
+        DungeonName name = dungeonName;
+        if (name == null || System.nanoTime() - name.receivedAt() > STAGE_MATCH_WINDOW_NANOS || !name.matches(key)) return "";
+        // 本地标题可能早于计分板或服务端统计快照。匹配到正式编号后结束配对。
+        if (!key.stageType().startsWith("STAGE_DUNGEON@")) dungeonName = null;
+        return name.text();
     }
 
     /**
@@ -220,7 +260,8 @@ public final class ClientStageDetector {
         currentKey = null;
         currentSnap = StageLocation.Snapshot.unknown();
         pendingSubtitle = null;
-        pendingSubtitleAtMs = 0L;
+        pendingDungeonTitle = null;
+        dungeonName = null;
         lastFloorTowerName = null;
         lastFloorNum = -1;
         ClientStageLocation.setFromClientProbe(StageLocation.Snapshot.unknown(), null);

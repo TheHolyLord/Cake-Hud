@@ -46,6 +46,7 @@ import java.util.List;
  *   <li>{@code version}：当前 1</li>
  *   <li>{@code entries}：VarInt 长度 + 逐 Entry</li>
  *   <li>Entry：name (UTF-8, max 16) + red/soul/black/blue/maxHp/lives (VarInt × 6)</li>
+ *   <li>所有旧条目之后可追加一个与条目同序的碎心 VarInt 列表；旧客户端会跳过尾部。</li>
  * </ul>
  */
 public record TeamHeartsPayload(
@@ -78,7 +79,8 @@ public record TeamHeartsPayload(
             int blackHearts,
             int blueHearts,
             int maxHp,
-            int lives
+            int lives,
+            Integer crackedHearts
     ) {}
 
     public static final StreamCodec<RegistryFriendlyByteBuf, TeamHeartsPayload> CODEC = StreamCodec.of(
@@ -98,6 +100,9 @@ public record TeamHeartsPayload(
             buf.writeVarInt(e.blueHearts);
             buf.writeVarInt(e.maxHp);
             buf.writeVarInt(e.lives);
+        }
+        if (entries.stream().allMatch(entry -> entry.crackedHearts() != null)) {
+            for (Entry entry : entries) buf.writeVarInt(entry.crackedHearts());
         }
     }
 
@@ -122,7 +127,14 @@ public record TeamHeartsPayload(
             int blue     = buf.readVarInt();
             int maxHp    = buf.readVarInt();
             int lives    = buf.readVarInt();
-            list.add(new Entry(name, red, soul, black, blue, maxHp, lives));
+            list.add(new Entry(name, red, soul, black, blue, maxHp, lives, null));
+        }
+        if (buf.readableBytes() >= n) {
+            for (int i = 0; i < n && buf.isReadable(); i++) {
+                Entry entry = list.get(i);
+                list.set(i, new Entry(entry.name(), entry.redHearts(), entry.soulHearts(), entry.blackHearts(),
+                        entry.blueHearts(), entry.maxHp(), entry.lives(), buf.readVarInt()));
+            }
         }
         // 末尾残字节保险阀
         if (buf.isReadable()) {

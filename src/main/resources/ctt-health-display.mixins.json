@@ -11,6 +11,7 @@
     "HudActionBarMixin",
     "HudSubtitleAccessor",
     "InGameHudTitleMixin",
+    "TitleTextMixin",
     "InputConstantsSafetyMixin",
     "LerpingBossEventAccessor",
     "TeammateHealthMixin",

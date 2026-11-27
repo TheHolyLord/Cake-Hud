@@ -1,7 +1,6 @@
 package com.ctt.healthdisplay.hud;
 
 import com.ctt.healthdisplay.CttHealthDisplay;
-import com.ctt.healthdisplay.mixin.BossBarHudAccessor;
 import com.ctt.healthdisplay.client.ClientMobHealthCache;
 import com.ctt.healthdisplay.client.HudRenderGate;
 import com.ctt.healthdisplay.client.MobArmorCollector;
@@ -36,6 +35,7 @@ import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -54,12 +54,7 @@ import java.util.UUID;
  *   <li>布局常量与旧 Gizmo 版一一对应（barTop=6 / barH=5 / numY=-4 / rowStep=12 / S=0.025）。</li>
  * </ul>
  *
- * <p>同版本行为变化（用户拍板）：
- * <ul>
- *   <li>血条<b>永远是红心色渐变</b>——删除"有魂心就把血条染成黄/紫/蓝分层"与溢出彩虹机制；
- *     魂 / 黑 / 蓝心改在护甲行用 💛🖤💙 图标显示数量（{@link MobArmorCollector#currentWithHearts}）。</li>
- *   <li>血量数字维持：左=AllHearts（全部心总量），右=MaxHP（红心上限）。</li>
- * </ul>
+ * <p>血量数字的左侧是所有心的总量，右侧是红心上限。额外心可单独列出，并在血条上以黄色覆盖层显示。
  *
  * <p>v8.5.6 · 修掉 v8.5.5 的四个屏幕空间绘制问题（用户截图反馈）：
  * <ul>
@@ -132,7 +127,6 @@ public final class MobBarScreenRenderer {
     private static final double NORMAL_BAR_LIFT = 8.0;
     private static final double NUM_Y = BAR_TOP - 10.0; // 血量数字行（血条上方）
     private static final double ROW_STEP = 9.0;   // 护甲/名字行距，避免无数据时出现空白行
-    private static final int HALF_W_MIN_I = 6;    // 血条最小半宽（旧像素系，v8.5.6 整数版）
 
     /** 整箱可见性判定的框内缩量：怪站在地面/贴墙时，边角恰好压在方块面上不算遮挡。 */
     private static final double BOX_INSET = 0.02;
@@ -141,8 +135,9 @@ public final class MobBarScreenRenderer {
     /** 角点"在屏幕内"判定的像素容差。 */
     private static final double SCREEN_EPS = 0.5;
 
-    private static final int EMPTY_FILL = 0xFF181818;
     private static final int TEXT_WHITE = 0xFFFFFFFF;
+    private static final int MAX_TRACKED_HEART_PEAKS = 512;
+    private static final LinkedHashMap<UUID, Integer> EXTRA_HEART_PEAKS = new LinkedHashMap<>(32, 0.75f, true);
 
     private MobBarScreenRenderer() {}
 
@@ -182,11 +177,12 @@ public final class MobBarScreenRenderer {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.gameRenderer == null) return;
         ModConfig cfg = ModConfig.INSTANCE;
-        if (!cfg.isMobHeadHPEnabled()) return;
-        if (mc.gui.hud.isHidden()) return;
+        if (!cfg.isMobHeadHPEnabled() || mc.gui.hud.isHidden()) return;
+        if (!cfg.showEnemyBar && !cfg.showEnemyName && !cfg.showEnemyArmor
+                && !cfg.showEnemyExtraHearts && !cfg.showEnemyHealthNumbers) return;
         // 与名牌抑制同门：mod HUD 被整体压掉的场景（过场 / 特殊 boss 时刻）这里也不画，
         // 避免与 vanilla 名牌形成双份信息。
-        if (HudRenderGate.shouldSuppressModHud(CttHealthDisplay.statsData)) return;
+        if (HudRenderGate.shouldSuppressModHud(CttHealthDisplay.statsData) && !cfg.showEnemyHealthDuringEffects) return;
 
         Vec3 camPos = mc.gameRenderer.mainCamera().position();
         Camera camera = mc.gameRenderer.mainCamera();
@@ -207,8 +203,10 @@ public final class MobBarScreenRenderer {
 
         BUF.clear();
         for (Entity entity : mc.level.entitiesForRendering()) {
-            if (entity instanceof net.minecraft.world.entity.player.Player) continue;
+            if (entity instanceof Player) continue;
             if (entity.isInvisible() || !entity.shouldRender(camPos.x, camPos.y, camPos.z)) continue;
+            if (camPos.distanceToSqr(entity.position()) > (double) cfg.enemyHeadDistance * cfg.enemyHeadDistance) continue;
+            if (cfg.suppressNpcHealth && ClientMobHealthCache.isNpc(entity)) continue;
             ResolvedData resolved = findMobData(mc, entity);
             if (resolved == null) continue;
             MobHealthData data = resolved.data;
@@ -273,67 +271,47 @@ public final class MobBarScreenRenderer {
         double gx = p.gx;
         double gy = p.gy;
 
-        // 护甲 + 心形数量行（12 档上限 = 3 行 × 4 段）
-        List<MobArmorCollector.Segment> segs =
-                MobArmorCollector.currentWithHearts(p.dataUuid, data.soulHearts, data.blackHearts, data.blueHearts);
-        if (segs.size() > 12) segs = segs.subList(0, 12);
-        int armorRows = (segs.size() + 3) / 4;       // 0..3
-
-        // v8.6.0 · 纯客户端兜底条目只有百分比（"73%"）；有绝对值的条目维持 "hp/maxHP"。
-        String hpText = data.percentOnly ? data.hp + "%" : data.hp + "/" + data.maxHP;
-        int pct = data.getPercent();
-        // 不透明填充；非"当前锁定目标"靠压暗 RGB（而非降 alpha）区分
-        int dim = data.targetted ? 0xFF : 0xB3;
-
-        // 血条宽度 = 血量数字文本宽度（与旧版同一公式；v8.5.6 起在"旧像素"系里算，
-        // 见下面血条绘制段）
-
-        // 1) 名字（最上方，居中）
-        double nameY = NUM_Y - ROW_STEP * armorRows - 11.0;
-        drawScaledText(context, font, data.name(), gx, gy + nameY * unit, ts, true, TEXT_WHITE);
-
-        // 2) 护甲/心形行：每行 ≤4 段、逐行居中；第一行离名字最近，最后一行贴着数字上方
-        double gap = Math.max(1.0, font.width(" ") * ts * 0.75);
-        for (int r = 0; r < armorRows; r++) {
-            int from = r * 4;
-            int to = Math.min(from + 4, segs.size());
-            double totalW = 0.0;
-            for (int i = from; i < to; i++) {
-                totalW += font.width(segs.get(i).text) * ts;
-            }
-            totalW += gap * (to - from - 1);
-            double cursor = gx - totalW / 2.0;
-            double rowY = NUM_Y - ROW_STEP * (armorRows - r);
-            double ty = gy + rowY * unit;
-            for (int i = from; i < to; i++) {
-                MobArmorCollector.Segment seg = segs.get(i);
-                drawScaledText(context, font, seg.text, cursor, ty, ts, false, seg.argb);
-                cursor += font.width(seg.text) * ts + gap;
+        String hpText = data.percentOnly ? data.hp + "%"
+                : HudNumbers.ratio(data.hp, data.maxHP);
+        int extra = data.percentOnly ? 0 : extraHearts(data);
+        int textColor = HeadHealthStyle.alpha(TEXT_WHITE, cfg.enemyTextOpacity);
+        double rowY = cfg.showEnemyBar ? NUM_Y : BAR_TOP;
+        // 字体最远有最小缩放，行距也跟随实际字号，隐藏行时不留空白。
+        double rowStep = Math.max(ROW_STEP * unit, 10 * ts);
+        double textY = gy + rowY * unit;
+        if (cfg.showEnemyHealthNumbers) {
+            drawScaledText(context, font, hpText, gx, textY, ts, true, textColor);
+            textY -= rowStep;
+        }
+        if (cfg.showEnemyExtraHearts && extra > 0) {
+            drawScaledText(context, font, "♡" + HudNumbers.amount(extra), gx, textY, ts,
+                    true, HeadHealthStyle.alpha(0xFFFFDD44, cfg.enemyTextOpacity));
+            textY -= rowStep;
+        }
+        if (cfg.showEnemyArmor) {
+            List<MobArmorCollector.Segment> armor = MobArmorCollector.current(p.dataUuid);
+            for (int from = (armor.size() - 1) / 4 * 4; from >= 0 && !armor.isEmpty(); from -= 4) {
+                drawArmorRow(context, font, armor.subList(from, Math.min(from + 4, armor.size())),
+                        gx, textY, ts, cfg.enemyTextOpacity);
+                textY -= rowStep;
             }
         }
+        if (cfg.showEnemyName) drawScaledText(context, font, data.name(), gx, textY, ts, true, textColor);
 
-        // 3) 血条：永远红心色单色（v8.5.5 起不再按魂/黑/蓝分层、不再彩虹溢出）。
-        //    v8.5.6：放进浮点 pose 子坐标系画——translate 用浮点屏幕坐标、scale 用浮点缩放，
-        //    fill 的整数坐标是"旧像素"系，经矩阵变换后边缘是亚像素精度。旧版把矩形四角
-        //    四舍五入成整数 GUI 像素（1 GUI 像素 = 2~3 屏幕像素），移动时血条一跳一跳，
-        //    看起来就是"跟着屏幕晃"。另外彻底删掉 outline 边框：该 API 的第 3、4 参是
-        //    宽高而非右下角坐标，旧调用传了绝对坐标，边框被拉成横跨全屏的黑线（用户截图）。
-        int halfOld = Math.max(HALF_W_MIN_I,
-                (int) Math.ceil(font.width(hpText) * (TEXT_WORLD_PER_PX / (2.0 * S))));
-        var pose = context.pose();
-        pose.pushMatrix();
-        pose.translate((float) gx, (float) gy);
-        pose.scale((float) unit, (float) unit);
-        context.fill(-halfOld, (int) BAR_TOP, halfOld, (int) (BAR_TOP + BAR_H), EMPTY_FILL);
-        int fillOld = (int) Math.round(2.0 * halfOld * pct / 100.0);
-        if (fillOld > 0) {
-            context.fill(-halfOld, (int) BAR_TOP, -halfOld + fillOld, (int) (BAR_TOP + BAR_H),
-                    dimAlpha(getMobBarColor(pct), dim));
+        if (cfg.showEnemyBar) {
+            int barLength = cfg.enemyBarLength;
+            int red = HeadHealthStyle.COLOR_RED_HEART;
+            int yellow = HeadHealthStyle.COLOR_SOUL_HEART;
+            var pose = context.pose();
+            pose.pushMatrix();
+            pose.translate((float) (gx - barLength * unit / 2.0), (float) gy);
+            pose.scale((float) unit, (float) unit);
+            HeadHealthStyle.drawEnemy(context, 0, (int) BAR_TOP, barLength, data.hp, data.maxHP,
+                    extra, extra > 0 ? extraCapacity(p.dataUuid, data.maxHP, extra) : 1,
+                    data.targetted ? red : HeadHealthStyle.dim(red),
+                    data.targetted ? yellow : HeadHealthStyle.dim(yellow), cfg.enemyBarOpacity);
+            pose.popMatrix();
         }
-        pose.popMatrix();
-
-        // 4) 血量数字：血条上方居中（左=所有心总量，右=红心上限）
-        drawScaledText(context, font, hpText, gx, gy + NUM_Y * unit, ts, true, TEXT_WHITE);
     }
 
     // ── 工具 ──
@@ -493,20 +471,37 @@ public final class MobBarScreenRenderer {
         pose.popMatrix();
     }
 
-    /** 完全不透明的"调暗"：RGB 各乘 dim/255，alpha 恒 FF。 */
-    private static int dimAlpha(int rgb, int dim) {
-        int r = ((rgb >> 16) & 0xFF) * dim / 0xFF;
-        int g = ((rgb >> 8) & 0xFF) * dim / 0xFF;
-        int b = (rgb & 0xFF) * dim / 0xFF;
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    private static void drawArmorRow(GuiGraphicsExtractor context, Font font,
+                                     List<MobArmorCollector.Segment> segments, double x, double y,
+                                     double scale, int opacity) {
+        double gap = Math.max(1, font.width(" ") * scale * 0.75);
+        double width = gap * (segments.size() - 1);
+        for (var segment : segments) width += font.width(segment.text) * scale;
+        double cursor = x - width / 2;
+        for (var segment : segments) {
+            drawScaledText(context, font, segment.text, cursor, y, scale, false,
+                    HeadHealthStyle.alpha(segment.argb, opacity));
+            cursor += font.width(segment.text) * scale + gap;
+        }
     }
 
-    /** 血条红心色渐变（与旧版一致；v8.5.5 起这是怪物血条唯一的配色路径）。 */
-    private static int getMobBarColor(int pct) {
-        if (pct <= 25) return 0xFFAA1515;
-        if (pct <= 50) return 0xFFCC6620;
-        if (pct <= 75) return 0xFFD83030;
-        return 0xFFE84040;
+    private static int extraHearts(MobHealthData data) {
+        long known = (long) Math.max(0, data.soulHearts) + Math.max(0, data.blackHearts) + Math.max(0, data.blueHearts);
+        // 总血量大于红心上限时，超出的部分一定是额外心。没有精确分项时仍可显示这部分。
+        return (int) Math.clamp(known, Math.max(0, (long) data.hp - data.maxHP), Math.max(0, data.hp));
+    }
+
+    private static int extraCapacity(UUID id, int maxHp, int extra) {
+        // 额外心超过红心上限时，记住已见到的最高值，避免掉血后黄色一直占满。
+        if (extra > maxHp) EXTRA_HEART_PEAKS.merge(id, extra, Math::max);
+        if (EXTRA_HEART_PEAKS.size() > MAX_TRACKED_HEART_PEAKS) EXTRA_HEART_PEAKS.pollFirstEntry();
+        return Math.max(maxHp, EXTRA_HEART_PEAKS.getOrDefault(id, 0));
+    }
+
+    public static boolean replacesNameplate(Minecraft mc, Entity entity, ModConfig cfg) {
+        if (mc.level == null) return false;
+        ResolvedData resolved = findMobData(mc, entity);
+        return resolved != null && (!cfg.isMobHeadHPNearestOnly() || resolved.data.targetted);
     }
 
     private static ResolvedData findMobData(Minecraft mc, Entity entity) {
@@ -696,5 +691,6 @@ public final class MobBarScreenRenderer {
     public static void reset() {
         BUF.clear();
         PSY_BOSS_MEMORY.clear();
+        EXTRA_HEART_PEAKS.clear();
     }
 }

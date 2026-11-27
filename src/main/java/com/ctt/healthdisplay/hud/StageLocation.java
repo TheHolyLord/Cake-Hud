@@ -224,6 +224,18 @@ public final class StageLocation {
      * 失败 / 未收到任何 payload 时返回 {@link Snapshot#unknown()}.
      */
     public static Snapshot probe() {
-        return ClientStageLocation.current();
+        Snapshot location = ClientStageLocation.current();
+        if (location.kind() != Kind.STAGE_DUNGEON) return location;
+
+        var damage = com.ctt.healthdisplay.client.ClientDamageProbe.INSTANCE;
+        var key = damage.getCurrentStageKey();
+        if (key == null || !Integer.toString(location.tier()).equals(key.tier())
+                || !Integer.toString(location.floor()).equals(key.floor())) return location;
+
+        String name = damage.dungeonName(key);
+        if (name.isEmpty()) return location;
+        return new Snapshot(location.kind(), location.tier(), location.floor(), location.stageNum(),
+                location.breakRoomId(), location.miniGameId(), location.gameOverPhase(), location.checkpoint(),
+                name, location.inMagumTrials());
     }
 }

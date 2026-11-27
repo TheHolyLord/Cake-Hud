@@ -170,7 +170,6 @@ public final class StatsTableScreen extends Screen {
         // 顶部信息：当前关卡 + Session 计时器
         StageLocation.Snapshot loc = StageLocation.probe();
         Component locText = loc.withStyle();
-        ctx.text(tr, locText, panelX + PANEL_PAD_X, y, 0xFFFFFFFF, true);
 
         long sessionMs = minecraft == null ? 0L : com.ctt.healthdisplay.client.ClientStatsCache.sessionDurationMs();
         String sessLbl = "Session: " + StatsTableData.formatDuration(sessionMs);
@@ -180,6 +179,12 @@ public final class StatsTableScreen extends Screen {
 
         // v8.1.0 · [清空] 小按钮：Session 字符串左侧 6px，与顶栏文本竖直居中
         clearBtnX = sessX - CLEAR_BTN_GAP - CLEAR_BTN_W;
+        int locX = panelX + PANEL_PAD_X;
+        int locMaxWidth = clearBtnX - locX - 4;
+        if (tr.width(locText) > locMaxWidth) {
+            locText = Component.literal(fitLabel(tr, locText.getString(), locMaxWidth)).withStyle(locText.getStyle());
+        }
+        ctx.text(tr, locText, locX, y, 0xFFFFFFFF, true);
         clearBtnY = y - 2; // 文本基线对齐：往上挪 2px 让按钮与文字视觉居中
         drawClearButton(ctx, tr, clearBtnX, clearBtnY, mouseX, mouseY);
 
@@ -274,11 +279,11 @@ public final class StatsTableScreen extends Screen {
         String scopeGlobal = Component.translatable("ctt-health-display.stats_table.cdp.scope.global").getString();
         String scopeStage  = Component.translatable("ctt-health-display.stats_table.cdp.scope.stage").getString();
         String[] parts = {
-                "\u2694 " + scopeGlobal + " " + TeammateStatsLine.compact(g),
-                "\u2694 " + scopeStage  + " " + TeammateStatsLine.compact(s),
-                "\u2620 " + scopeGlobal + " " + TeammateStatsLine.compact(gk),
-                "\u2620 " + scopeStage  + " " + TeammateStatsLine.compact(sk),
-                "\u26A1 " + TeammateStatsLine.compact(d) + "/s"
+                "\u2694 " + scopeGlobal + " " + HudNumbers.amount(g),
+                "\u2694 " + scopeStage  + " " + HudNumbers.amount(s),
+                "\u2620 " + scopeGlobal + " " + HudNumbers.amount(gk),
+                "\u2620 " + scopeStage  + " " + HudNumbers.amount(sk),
+                "\u26A1 " + HudNumbers.amount(d) + "/s"
         };
         int[] colors = {
                 TEXT_ICON_DEALT, TEXT_LIGHT_GOLD,
@@ -454,10 +459,10 @@ public final class StatsTableScreen extends Screen {
                     : row.name();
             ctx.text(tr, displayName, x + TOTAL_COLS[0].x, y + 2, textCol, true);
             // 数字列
-            drawRightAligned(ctx, tr, compact(row.dealt()),     x + TOTAL_COLS[1].x, y + 2, TOTAL_COLS[1].w, textCol);
-            drawRightAligned(ctx, tr, compact(row.taken()),     x + TOTAL_COLS[2].x, y + 2, TOTAL_COLS[2].w, textCol);
-            drawRightAligned(ctx, tr, Integer.toString(row.kills()),     x + TOTAL_COLS[3].x, y + 2, TOTAL_COLS[3].w, textCol);
-            drawRightAligned(ctx, tr, Integer.toString(row.assists()),   x + TOTAL_COLS[4].x, y + 2, TOTAL_COLS[4].w, textCol);
+            drawRightAligned(ctx, tr, HudNumbers.amount(row.dealt()),     x + TOTAL_COLS[1].x, y + 2, TOTAL_COLS[1].w, textCol);
+            drawRightAligned(ctx, tr, HudNumbers.amount(row.taken()),     x + TOTAL_COLS[2].x, y + 2, TOTAL_COLS[2].w, textCol);
+            drawRightAligned(ctx, tr, HudNumbers.amount(row.kills()),     x + TOTAL_COLS[3].x, y + 2, TOTAL_COLS[3].w, textCol);
+            drawRightAligned(ctx, tr, HudNumbers.amount(row.assists()),   x + TOTAL_COLS[4].x, y + 2, TOTAL_COLS[4].w, textCol);
             drawRightAligned(ctx, tr, StatsTableData.formatDuration(row.durationMs()),
                                                                   x + TOTAL_COLS[5].x, y + 2, TOTAL_COLS[5].w, textCol);
             y += ROW_HEIGHT;
@@ -471,10 +476,10 @@ public final class StatsTableScreen extends Screen {
         ctx.fill(x - 2, y - 1, x + PANEL_W - PANEL_PAD_X * 2 + 2, y + ROW_HEIGHT - 1, FOOT_BG);
         int color = TEXT_LIGHT_GOLD;
         ctx.text(tr, t.name(), x + TOTAL_COLS[0].x, y + 2, color, true);
-        drawRightAligned(ctx, tr, compact(t.dealt()),     x + TOTAL_COLS[1].x, y + 2, TOTAL_COLS[1].w, color);
-        drawRightAligned(ctx, tr, compact(t.taken()),     x + TOTAL_COLS[2].x, y + 2, TOTAL_COLS[2].w, color);
-        drawRightAligned(ctx, tr, Integer.toString(t.kills()),     x + TOTAL_COLS[3].x, y + 2, TOTAL_COLS[3].w, color);
-        drawRightAligned(ctx, tr, Integer.toString(t.assists()),   x + TOTAL_COLS[4].x, y + 2, TOTAL_COLS[4].w, color);
+        drawRightAligned(ctx, tr, HudNumbers.amount(t.dealt()),     x + TOTAL_COLS[1].x, y + 2, TOTAL_COLS[1].w, color);
+        drawRightAligned(ctx, tr, HudNumbers.amount(t.taken()),     x + TOTAL_COLS[2].x, y + 2, TOTAL_COLS[2].w, color);
+        drawRightAligned(ctx, tr, HudNumbers.amount(t.kills()),     x + TOTAL_COLS[3].x, y + 2, TOTAL_COLS[3].w, color);
+        drawRightAligned(ctx, tr, HudNumbers.amount(t.assists()),   x + TOTAL_COLS[4].x, y + 2, TOTAL_COLS[4].w, color);
         drawRightAligned(ctx, tr, StatsTableData.formatDuration(t.durationMs()),
                                                               x + TOTAL_COLS[5].x, y + 2, TOTAL_COLS[5].w, color);
     }
@@ -524,9 +529,8 @@ public final class StatsTableScreen extends Screen {
                 if (i == 0) {
                     String layerText = block.tierFloorLabel() + (block.inProgress() ? " \u2b50" : "");
                     ctx.text(tr, layerText, x + STAGE_COLS[0].x, y + 2, TEXT_LIGHT_GOLD, true);
-                    String name = block.localizedName();
-                    if (name.length() > 12) name = name.substring(0, 11) + "\u2026";
-                    if (block.inProgress()) name = name + " \u2606";
+                    String marker = block.inProgress() ? " \u2606" : "";
+                    String name = fitLabel(tr, block.localizedName(), STAGE_COLS[1].w - tr.width(marker)) + marker;
                     ctx.text(tr, name, x + STAGE_COLS[1].x, y + 2, TEXT_LIGHT_GOLD, true);
                 }
                 // 头像 + 名字
@@ -536,10 +540,10 @@ public final class StatsTableScreen extends Screen {
                         : row.name();
                 ctx.text(tr, displayName, x + STAGE_COLS[2].x, y + 2, textCol, true);
                 // 数字
-                drawRightAligned(ctx, tr, compact(row.dealt()),    x + STAGE_COLS[3].x, y + 2, STAGE_COLS[3].w, textCol);
-                drawRightAligned(ctx, tr, compact(row.taken()),    x + STAGE_COLS[4].x, y + 2, STAGE_COLS[4].w, textCol);
-                drawRightAligned(ctx, tr, Integer.toString(row.kills()),  x + STAGE_COLS[5].x, y + 2, STAGE_COLS[5].w, textCol);
-                drawRightAligned(ctx, tr, Integer.toString(row.assists()),x + STAGE_COLS[6].x, y + 2, STAGE_COLS[6].w, textCol);
+                drawRightAligned(ctx, tr, HudNumbers.amount(row.dealt()),    x + STAGE_COLS[3].x, y + 2, STAGE_COLS[3].w, textCol);
+                drawRightAligned(ctx, tr, HudNumbers.amount(row.taken()),    x + STAGE_COLS[4].x, y + 2, STAGE_COLS[4].w, textCol);
+                drawRightAligned(ctx, tr, HudNumbers.amount(row.kills()),  x + STAGE_COLS[5].x, y + 2, STAGE_COLS[5].w, textCol);
+                drawRightAligned(ctx, tr, HudNumbers.amount(row.assists()),x + STAGE_COLS[6].x, y + 2, STAGE_COLS[6].w, textCol);
                 drawRightAligned(ctx, tr, StatsTableData.formatDuration(row.durationMs()),
                                                                        x + STAGE_COLS[7].x, y + 2, STAGE_COLS[7].w, textCol);
                 y += ROW_HEIGHT;
@@ -562,11 +566,19 @@ public final class StatsTableScreen extends Screen {
     // =========================================================================
     //  通用工具
     // =========================================================================
-    private static String compact(long v) { return TeammateStatsLine.compact(v); }
-
     private static void drawRightAligned(GuiGraphicsExtractor ctx, Font tr, String text, int colX, int y, int colW, int color) {
         int tw = tr.width(text);
-        ctx.text(tr, text, colX + colW - tw, y, color, true);
+        if (tw <= colW) {
+            ctx.text(tr, text, colX + colW - tw, y, color, true);
+            return;
+        }
+        float scale = (float) colW / (tw + 1);
+        var pose = ctx.pose();
+        pose.pushMatrix();
+        pose.translate(colX + colW - tw * scale, y + (1 - scale) * tr.lineHeight / 2);
+        pose.scale(scale, scale);
+        ctx.text(tr, text, 0, 0, color, true);
+        pose.popMatrix();
     }
 
     /**

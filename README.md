@@ -1,8 +1,8 @@
-# Cake Tower HUD Plus
+# Cake Tower HUD
 
-> 蛋糕塔 Chapter 3（Cake Team Towers）专用的 Fabric HUD 模组：自绘血量条、属性面板、队友头顶血条、怪物追踪，面板可拖拽，并接入 ModMenu 配置界面。
+> 蛋糕塔 Chapter 3（Cake Team Towers）专用的 Fabric HUD 模组：自绘血量条、属性面板、队友与敌人头顶血条、战斗统计，按 `F8` 打开设置，面板可在预览中拖动。
 >
-> A client-side HUD mod built for **Cake Team Towers Chapter 3**: custom health bars, stats panel, teammate overhead bars and mob tracking. Panels are drag-to-position and configurable through ModMenu.
+> A HUD mod built for **Cake Team Towers Chapter 3**: layered health bars, stats panel, party and enemy overhead bars, combat tables. Press `F8` to configure; panels are drag-to-position.
 
 ![Mod icon](src/main/resources/assets/ctt-health-display/icon.png)
 
@@ -11,7 +11,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | Mod ID | `ctt-health-display` |
-| 当前版本 | `1.0.0-r73` |
+| 当前版本 | `2.0.2`（构建标记 `2.0.2-r92`） |
 | Minecraft | `~26.3` |
 | Fabric Loader | `>= 0.19.3`（构建使用 `0.19.5`） |
 | Fabric API | `0.162.0+26.3` |
@@ -25,19 +25,20 @@
 ## 功能特性
 
 ### 核心 HUD
-- **自定义血量条**：分层绘制红心 / 魂心 / 黑心 / 蓝心 / 碎心 / 粉心，支持多色心叠加。
-- **属性面板**：可分别控制背包关闭时 / 背包打开时是否显示，列数与位置可调；支持服务端属性推送与客户端定时 `trigger ViewStats` 两条取数路径。
-- **队友头顶血条**：世界空间渲染，支持四色心叠加外观与老版多槽溢出条两种风格，可切换横向 / 纵向布局。
-- **怪物追踪血条**：全部显示 / 仅最近目标 / 关闭三档，按 `Targetting`、`Boss`、`E` 标签与距离认领怪物数据，避免同名怪物串血条。
-- **盾牌冷却条**：独立渲染层，癫狂等状态压掉主 HUD 时仍可显示。
-- **弓箭预览**：紧跟原版快捷栏绘制，与物品格对齐。
-- **可拖拽面板**：伤害分配面板、队友面板、属性面板均可在游戏内拖动位置，并可重置。
+- **自定义血量条**：快捷栏上方、队友列表、队友头顶统一使用红心 / 碎心 / 魂心 / 黑心 / 蓝心分层配色；有碎心时显示 `200/150 (200)`（当前 / 碎心后上限 / 原上限）。
+- **属性面板**：可分别控制背包关闭时 / 背包打开时是否显示，列数与左右对齐可调，支持隐藏单项属性；支持服务端属性推送与客户端定时 `trigger ViewStats` 两条取数路径。
+- **队友头顶血条**：抬到名字上方，世界空间渲染，每行最多四组、超出向上换行；长度用 30–100 滑块调整，心形按默认长度 80 绘制。
+- **敌人头顶血条**：带轮廓与高光样式，额外心用黄色并跟随血量变化；名称、护甲抗性、额外心、血量数字、血条可分别开关，长度固定不随数字位数变化，可隐藏 NPC 血量。
+- **数字简写**：`1500 → 1.5K`、`2400000 → 2.4M`，更大值可达 `B` / `T`，覆盖快捷栏状态、队友列表、属性面板、头顶血量与伤害统计。
+- **盾牌冷却**：可选横向长条或竖向指示器，大小、透明度可调；持弓时显示下一支箭预览并可拖动位置。
+- **屏幕标题**：标题与副标题各有水平位置、垂直位置、大小和透明度；旧配置的共用位置会沿用并拆分。
+- **设置界面**：按 `F8` 打开，队友列表、属性面板、盾牌冷却、箭矢提示均可在预览中拖动。
 
 ### 战斗统计（实验性）
 > ⚠ 伤害统计 / 攻击者归属 / 伤害分配 / K·D·A 统计 / 每关战绩广播仍在调优中：数值可能不准、归属可能误判、聊天广播默认关闭。
 
-- **伤害分配面板（L / F24）**：整局（SESSION）与当前关（CURRENT_STAGE）两种数据切片，紧凑行 / 详情展开两种视图。
-- **统计表（N）**：总表 / 分关表，点击列头排序、滚轮滚动，含客户端可见伤害（无归属）聚合行。
+- **伤害分配面板（F24）**：整局（SESSION）与当前关（CURRENT_STAGE）两种数据切片，紧凑行 / 详情展开两种视图。
+- **统计表（N）**：总表 / 分关表，点击列头排序、滚轮滚动；分关表优先显示进入地牢时屏幕中央的副标题，并按实际宽度裁剪过长名称。
 - **攻击者归属链路**：武器+火焰 → 计分板 tick → 3m / 40m 标记 → 计分板窗口 → 火焰窗口 → 最后命中者 → 召唤物兜底 → 未归属。
 - **服务端统计广播**：伤害 / 击杀 / 承伤 / 每关战绩可在聊天栏广播；承伤可设阈值。
 - **客户端伤害探针（CDP）**：本地观测伤害增量、击杀与 5 秒 DPS，数据落盘 `ctt-health-display-cdp.json`，断线前自动冻结保存。
@@ -52,6 +53,7 @@
 
 | 按键 | 功能 |
 | --- | --- |
+| `F8` | 打开设置界面（可拖动面板预览） |
 | `H` | 切换 CTT 血条显示 / 隐藏 |
 | `J` | 切换背包关闭时的属性栏显示 / 隐藏 |
 | `K` | 切换 Boss 栏（自身 / 队友 / 怪物）显示 |
@@ -73,9 +75,9 @@
 # 在仓库根目录执行
 ./gradlew build          # Windows: gradlew.bat build
 ```
-产物位于 `build/libs/`：
-- `fabric_upgrade-<version>.jar`：模组主文件，放入 `.minecraft/mods`。
-- `fabric_upgrade-<version>-sources.jar`：源码包。
+产物位于 `build/libs/`（构建脚本会去掉 `-rNN` 内部标记，只留正式版本号）：
+- `cake-tower-hud-2.0.2.jar`：模组主文件，放入 `.minecraft/mods`。
+- `cake-tower-hud-2.0.2-sources.jar`：源码包。
 
 ### 开发运行
 ```bash
@@ -92,21 +94,21 @@
 
 ```
 Cake-Tower-HUD-Plus/
-├── build.gradle                  # Fabric Loom 构建脚本
+├── build.gradle                  # Fabric Loom 构建脚本（发布版号去掉 -rNN）
 ├── settings.gradle               # 项目名与插件仓库
 ├── gradle.properties             # MC / Loader / API / 版本等属性
 ├── libs/
 │   └── modmenu-21.0.0.jar        # ModMenu 编译期接口（不打包进 jar）
 ├── src/main/
 │   ├── java/com/ctt/healthdisplay/
-│   │   ├── CttHealthDisplay.java  # 客户端入口
+│   │   ├── CttHealthDisplay.java  # 客户端入口与按键注册
 │   │   ├── ModMenuIntegration.java
-│   │   ├── client/               # 客户端缓存、探针、识别器、聊天过滤
-│   │   ├── config/              # 客户端 / 服务端配置与配置界面
-│   │   ├── health/              # 血量 / 属性 / 怪物血量数据模型
-│   │   ├── hud/                  # 各 HUD 渲染器与屏幕
-│   │   ├── mixin/               # 客户端 Mixin
-│   │   ├── network/              # S2C 网络 payload 与 codec
+│   │   ├── client/               # 客户端缓存、探针、识别器、统计行标识
+│   │   ├── config/               # 配置模型、设置主界面与各分页（标题 / 盾牌 / 属性筛选 / 头顶样式 / 预览拖动）
+│   │   ├── health/              # 血量 / 属性 / 怪物血量数据模型、属性标签
+│   │   ├── hud/                  # 各 HUD 渲染器、碎心图标、头顶样式、数字简写
+│   │   ├── mixin/               # 客户端 Mixin（标题文本、Lore 交互等）
+│   │   ├── network/              # S2C 网络 payload 与 codec（含 NPC 血量可见性）
 │   │   └── server/              # 服务端统计、归属、广播、命令与服务端 Mixin
 │   └── resources/
 │       ├── fabric.mod.json
@@ -115,6 +117,7 @@ Cake-Tower-HUD-Plus/
 │       ├── pack.mcmeta
 │       ├── stage_name_map.json   # 关卡 ID → 本地化名称表
 │       ├── weapon_damage_seed.json
+│       ├── META-INF/cake-tower-hud/  # 随 jar 分发的 CHANGELOG / RELEASE 文档
 │       └── assets/ctt-health-display/
 │           ├── icon.png
 │           ├── lang/             # zh_cn.json / en_us.json
@@ -142,6 +145,7 @@ Cake-Tower-HUD-Plus/
 | `MobHealthPayload` | S2C | 视野内怪物血量（HP / 上限 / 是否被锁定） |
 | `PlayerStatsPayload` | S2C | 服务端推送的属性面板内容 |
 | `TeamHeartsPayload` | S2C | 全队四色心与最大生命摘要 |
+| `NpcHealthVisibilityPayload` | S2C | NPC 头顶血量是否可见 |
 
 集成服务器单 JVM 下任意一端先注册即可，重复注册抛出的 `IllegalArgumentException` 会被吞掉；纯专用客户端 / 远端客户端必须在客户端侧完成注册。
 

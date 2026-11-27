@@ -58,7 +58,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.network.chat.Component;
 
 import java.util.HashMap;
@@ -76,6 +75,7 @@ public class CttHealthDisplay implements ClientModInitializer {
 
     private static final HealthData healthData = new HealthData();
     public static final StatsData statsData = new StatsData();
+    private static KeyMapping openConfigKey;
     private static KeyMapping toggleHudKey;
     private static KeyMapping toggleStatsKey;
     private static KeyMapping toggleBossBarsKey;
@@ -156,6 +156,16 @@ public class CttHealthDisplay implements ClientModInitializer {
             ClientMobHealthCache.onPayload(payload);
         });
 
+        var npcType = com.ctt.healthdisplay.network.NpcHealthVisibilityPayload.ID;
+        try {
+            PayloadTypeRegistry.clientboundPlay().register(npcType, com.ctt.healthdisplay.network.NpcHealthVisibilityPayload.CODEC);
+        } catch (IllegalArgumentException duplicate) {
+            // 单人游戏中, 服务端入口可能已注册。
+        }
+        ClientPlayNetworking.registerGlobalReceiver(npcType, (payload, ctx) -> {
+            ClientMobHealthCache.recordNpcs(payload.entities());
+        });
+
         // v8.4.0 · 服务端属性 push payload。集成服务器 / dedicated client 双注册保险。
         // receiver 切到客户端线程灌 StatsData —— 该对象的字段同时被 HudRenderCallback /
         // ClientReceiveMessageEvents 读写，必须走 client.execute 保证单线程。
@@ -228,6 +238,9 @@ public class CttHealthDisplay implements ClientModInitializer {
             CdpPersistence.save(ClientDamageProbe.INSTANCE.captureSnapshot());
         });
 
+        openConfigKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.ctt-health-display.open_config", InputConstants.Type.KEYBOARD, InputConstants.KEY_F8, CTT_CATEGORY));
+
         toggleHudKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.ctt-health-display.toggle_hud",
                 InputConstants.Type.KEYBOARD,
@@ -291,7 +304,10 @@ public class CttHealthDisplay implements ClientModInitializer {
     }
 
     private static void cttExtractHud(net.minecraft.client.gui.GuiGraphicsExtractor context, net.minecraft.client.DeltaTracker tickCounter) {
-            if (HudRenderGate.shouldSuppressModHud(statsData)) return;
+            if (HudRenderGate.shouldSuppressModHud(statsData)) {
+                MobBarScreenRenderer.render(context, tickCounter);
+                return;
+            }
 
             if (hudEnabled) {
                 HealthBarRenderer.render(context, tickCounter, healthData, statsData);
@@ -404,6 +420,11 @@ public class CttHealthDisplay implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             tickCounter++;
+            while (openConfigKey.consumeClick()) {
+                if (client.player != null && client.gui.screen() == null) {
+                    client.gui.setScreen(new com.ctt.healthdisplay.config.ConfigScreen(null));
+                }
+            }
             LorePopupManager.clientTick(client);
 
             // Keep HealthData fresh even when HUD is off, so we can auto-toggle party bossbar.
@@ -426,12 +447,6 @@ public class CttHealthDisplay implements ClientModInitializer {
                 updateMobTracking(client);
             }
 
-            if (ModConfig.INSTANCE.showTeammateHeadHP && client.level != null) {
-                var scoreboard = client.level.getScoreboard();
-                if (scoreboard.getDisplayObjective(DisplaySlot.BELOW_NAME) != null) {
-                    scoreboard.setDisplayObjective(DisplaySlot.BELOW_NAME, null);
-                }
-            }
             if (toggleHudKey.consumeClick()) {
                 hudEnabled = !hudEnabled;
                 if (client.player != null) {
@@ -579,6 +594,7 @@ public class CttHealthDisplay implements ClientModInitializer {
                         && !(e instanceof Player)
                         && !(e instanceof ArmorStand)
                         && living.isAlive()
+                        && (!ModConfig.INSTANCE.suppressNpcHealth || !ClientMobHealthCache.isNpc(e))
                         && matchesName(e, mobName)) {
                     // Targetting = 数据包此刻锁定的敌人，最高优先；E 是敌人通用标签，
                     // Boss 是数据包给 boss 的额外优先级标签。客户端不一定能同步命令标签，

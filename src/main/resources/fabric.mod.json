@@ -2,17 +2,12 @@
   "schemaVersion": 1,
   "id": "ctt-health-display",
   "version": "${version}",
-  "name": "Cake Tower HUD Plus",
-  "description": "蛋糕塔 Chapter 3 (Cake Team Towers) 专用纯客户端 HUD：自绘血量条、属性面板、队友头顶血条、怪物追踪。可拖拽 + ModMenu。\n\u26A0 实验性功能（可能有问题）：伤害统计 / 攻击者归属 / 伤害分配 (L) / K/D/A 统计 (N) / 每关战绩广播。仍在调优中，数值可能不准、归属可能误判、聊天广播默认关闭。\nClient-only HUD for Cake Team Towers Chapter 3: custom health bars, stats panel, teammate overhead bars, mob tracking. Drag-to-position + ModMenu.\n\u26A0 Experimental (may misbehave): combat analytics / attacker attribution / damage panel (L) / K/D/A stats (N) / per-stage chat report. Numbers may be off, attribution may misroute, chat broadcasts default OFF.\n",
+  "name": "Cake Tower HUD",
+  "description": "为蛋糕塔 Chapter 3（Cake Team Towers）设计的游戏信息面板。快捷栏上方显示自己的状态，队友列表和头顶血条显示血量与各类心。按 F8 调整面板位置、左右对齐、数字简写、盾牌冷却、箭矢提示和屏幕标题，按 N 打开实验性伤害统计与分关表。分关表优先使用进入地牢时的副标题。客户端可单独安装，服务端可选装以同步血量、心数、属性与 NPC 标记。战绩广播默认关闭。\nCustom HUD for Cake Team Towers Chapter 3 with personal status bars, party and overhead health bars, character stats, shield cooldown, and an arrow preview. Press F8 to configure the display or N to open the experimental combat and stage tables. Dungeon names use the entry subtitle when available. Optional server installation synchronizes health, heart counts, stats, and NPC markers. Chat reports are off by default.",
   "authors": ["\u9e92\u9e9f(Kirin0321)"],
   "contributors": [
     "OnlyScoutCat (Sponsor · MC Server sc4.i9idc.com:12439)"
   ],
-  "contact": {
-    "homepage": "https://www.curseforge.com/minecraft/mc-mods/cake-tower-hud-plus",
-    "sources": "https://github.com/Kirin-0321/Cake-Tower-HUD-Plus",
-    "issues": "https://www.curseforge.com/minecraft/mc-mods/cake-tower-hud-plus/issues"
-  },
   "license": "MIT",
   "icon": "assets/ctt-health-display/icon.png",
   "environment": "*",

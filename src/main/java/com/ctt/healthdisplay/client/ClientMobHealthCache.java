@@ -68,7 +68,17 @@ public final class ClientMobHealthCache {
     /** 服务端骑士资源模式：0=未提供/非骑士，1=体力，2=法力。 */
     private static volatile byte knightResourceMode = 0;
 
+    private static volatile java.util.Set<UUID> npcIds = java.util.Set.of();
+
     private ClientMobHealthCache() {}
+
+    public static void recordNpcs(java.util.Set<UUID> ids) {
+        npcIds = ids;
+    }
+
+    public static boolean isNpc(net.minecraft.world.entity.Entity entity) {
+        return entity.entityTags().contains("NPC") || npcIds.contains(entity.getUUID());
+    }
 
     public static void onPayload(MobHealthPayload payload) {
         if (payload == null) return;
@@ -161,6 +171,7 @@ public final class ClientMobHealthCache {
     /** DISCONNECT / reset 时清缓存，避免切服后看到上一局残留。 */
     public static void reset() {
         snapshot = Collections.emptyMap();
+        npcIds = java.util.Set.of();
         lastPushMs = 0L;
         crackedHeartsScore = 0;
         playerMana = 0;

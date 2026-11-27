@@ -58,6 +58,22 @@ public final class ViewStatsBuilder {
     private static final TextColor GRAVITY_DOWN = TextColor.fromRgb(0x9500ff);
     private static final TextColor CELESTIAL    = TextColor.fromRgb(0x892EFF);
 
+    // 键来自地图每次 ViewStats 刷新所用的文本，与玩家资源包共用。
+    private record Multiplier(String objective, int key, String label, ChatFormatting color,
+                              ChatFormatting reducedColor) {}
+
+    private static final List<Multiplier> MULTIPLIERS = List.of(
+            new Multiplier("MaxHP", 4, "Max HP", ChatFormatting.RED, ChatFormatting.GRAY),
+            new Multiplier("ClassStat", 8, "Class Stat", ChatFormatting.GOLD, ChatFormatting.GRAY),
+            new Multiplier("Strength", 10, "Strength", ChatFormatting.RED, ChatFormatting.GRAY),
+            new Multiplier("AttackSpeed", 12, "Attack Speed", ChatFormatting.BLUE, ChatFormatting.GRAY),
+            new Multiplier("Defence", 16, "Defence", ChatFormatting.BLUE, ChatFormatting.GRAY),
+            new Multiplier("TrueArmor", 18, "True Armor", ChatFormatting.WHITE, ChatFormatting.RED),
+            new Multiplier("Healing", 20, "Healing", ChatFormatting.LIGHT_PURPLE, ChatFormatting.GRAY),
+            new Multiplier("FireArmor", 25, "Fire Armor", ChatFormatting.GOLD, ChatFormatting.GRAY),
+            new Multiplier("Speed", 33, "Speed", ChatFormatting.AQUA, ChatFormatting.GRAY),
+            new Multiplier("ManaPower", 40, "Mana Power", ChatFormatting.GOLD, ChatFormatting.GRAY));
+
     // v8.4.0 · 不再插入 datapack 的标题 "Your Stats:" + 提示 "Hover over an icon to see what it is"：
     //   1) HUD 渲染走 StatsRenderer 一行一行画，不是 chat —— hoverEvent 在静态文本上无意义；
     //   2) 标题+提示占用 HUD 顶部 2 行（~20 px）纯装饰空间，挤占属性数据可见区；
@@ -99,7 +115,14 @@ public final class ViewStatsBuilder {
                 default -> 0;
             };
             if (val >= 1) {
-                lines.add(buildIconLine(val, "\u2764", h.color(), false));
+                int label = switch (h.objective()) {
+                    case "RedHearts" -> 1;
+                    case "SoulHearts" -> 2;
+                    case "BlackHearts" -> 3;
+                    case "BlueHearts" -> 4;
+                    default -> throw new IllegalArgumentException(h.objective());
+                };
+                lines.add(withIconLabel(buildIconLine(val, "\u2764", h.color(), false), label));
             }
         }
 
@@ -107,15 +130,15 @@ public final class ViewStatsBuilder {
         // 不读取 PinkHearts，避免那个无实际作用的记分板残留旧显示。
         int crackedScore = ScoreboardReader.readOrZero(sb, "CrackedHearts", player);
         if (crackedScore >= 1) {
-            lines.add(buildIconLine(crackedScore, "\uE026", DARK_RED, false));
+            lines.add(withIconLabel(buildIconLine(crackedScore, "\uE026", DARK_RED, false), 5));
         } else if (crackedScore <= -1) {
-            lines.add(buildIconLine(Math.abs(crackedScore), "\uE026", LIGHT_PURPLE, false));
+            lines.add(withIconLabel(buildIconLine(Math.abs(crackedScore), "\uE026", LIGHT_PURPLE, false), 6));
         }
 
         // 4. NegMaxHealth（datapack 只有 1.. 分支）
         int negMax = ScoreboardReader.readOrZero(sb, "NegMaxHealth", player);
         if (negMax >= 1) {
-            lines.add(buildIconLine(negMax, "\u2764", GRAY, false));
+            lines.add(withIconLabel(buildIconLine(negMax, "\u2764", GRAY, false), 7));
         }
 
         // 5. 普通属性表条目
@@ -135,38 +158,36 @@ public final class ViewStatsBuilder {
             appendDualBranch(lines, val, entry);
         }
 
-        // 6. SpeedAmplifier（bold + ≠100 显示，..99 gray、101.. aqua）
-        int speedAmp = ScoreboardReader.readOrZero(sb, "SpeedAmplifier", player);
-        if (speedAmp <= 99) {
-            lines.add(buildSpeedAmpLine(speedAmp, GRAY));
-        } else if (speedAmp >= 101) {
-            lines.add(buildSpeedAmpLine(speedAmp, AQUA));
-        }
-        // 7. 条件行："Speed before Amplifier | <SpeedRaw>"（仅 SpeedAmplifier != 100）
-        if (speedAmp != 100) {
-            int speedRaw = ScoreboardReader.readOrZero(sb, "SpeedRaw", player);
-            MutableComponent line = Component.literal("Speed before Amplifier | ")
-                    .withStyle(Style.EMPTY.withColor(AQUA));
-            line.append(Component.literal(String.valueOf(speedRaw))
-                    .withStyle(Style.EMPTY.withColor(AQUA)));
-            lines.add(line);
+        for (Multiplier stat : MULTIPLIERS) {
+            var objective = sb.getObjective(stat.objective + "Amplifier");
+            if (objective == null) continue;
+            var score = sb.getPlayerScoreInfo(player, objective);
+            if (score == null || score.value() == 100) continue;
+            TextColor color = TextColor.fromLegacyFormat(stat.color);
+            TextColor reduced = TextColor.fromLegacyFormat(stat.reducedColor);
+            Style highlighted = Style.EMPTY.withBold(true).withColor(score.value() < 100 ? reduced : color);
+            lines.add(Component.literal(Integer.toString(score.value())).withStyle(highlighted)
+                    .append(Component.translatableWithFallback("Misc_View_Stats_" + stat.key,
+                            "%% " + stat.label + " Multiplier")));
+            int raw = ScoreboardReader.readOrZero(sb, stat.objective + "Raw", player);
+            lines.add(Component.translatableWithFallback("Misc_View_Stats_" + (stat.key + 1),
+                            stat.label + " before Multiplier | ")
+                    .withStyle(Style.EMPTY.withColor(color)).append(Integer.toString(raw)));
         }
 
         // 8. Size：负值 ⬇ #5469ff，正值 ⬆ #ff0005
         int size = ScoreboardReader.readOrZero(sb, "Size", player);
-        if (size <= -1) {
-            lines.add(buildIconLine(size, "\u2B07", SIZE_DOWN, false));
-        } else if (size >= 1) {
-            lines.add(buildIconLine(size, "\u2B06", SIZE_UP, false));
+        if (size != 0) {
+            lines.add(withIconLabel(buildIconLine(size, size < 0 ? "\u2B07" : "\u2B06",
+                    size < 0 ? SIZE_DOWN : SIZE_UP, false), 37));
         }
 
         // 9. Gravity：负值 ⇑ #e854ff，正值 ⇓ #9500ff（datapack 注释里方向就是这样反的，
         //    负值表示"反向重力"用 ⇑ 上箭头，正值表示"加强重力"用 ⇓ 下箭头）
         int gravity = ScoreboardReader.readOrZero(sb, "Gravity", player);
-        if (gravity <= -1) {
-            lines.add(buildIconLine(gravity, "\u21D1", GRAVITY_UP, false));
-        } else if (gravity >= 1) {
-            lines.add(buildIconLine(gravity, "\u21D3", GRAVITY_DOWN, false));
+        if (gravity != 0) {
+            lines.add(withIconLabel(buildIconLine(gravity, gravity < 0 ? "\u21D1" : "\u21D3",
+                    gravity < 0 ? GRAVITY_UP : GRAVITY_DOWN, false), 38));
         }
 
         // 10. CelestialKarma（条件门：#ServerTier CT == 3）
@@ -174,9 +195,9 @@ public final class ViewStatsBuilder {
         if (serverTier == 3) {
             int celest = ScoreboardReader.readOrZero(sb, "CelestialKarma", player);
             if (celest <= -1) {
-                lines.add(buildIconLine(celest, "\uE027", GRAY, false));
+                lines.add(withIconLabel(buildIconLine(celest, "\uE027", GRAY, false), 54));
             } else if (celest >= 1) {
-                lines.add(buildIconLine(celest, "\uE027", CELESTIAL, false));
+                lines.add(withIconLabel(buildIconLine(celest, "\uE027", CELESTIAL, false), 54));
             }
         }
 
@@ -196,12 +217,7 @@ public final class ViewStatsBuilder {
 
         // 12. #Skulls CTT（fake player score）
         int skulls = ScoreboardReader.readOrZero(sb, "CTT", ScoreHolder.forNameOnly("#Skulls"));
-        if (skulls <= -1) {
-            lines.add(buildIconLine(skulls, "\u2620", GRAY, false));
-        } else {
-            // datapack 是 0.. red ☠；0 也显示
-            lines.add(buildIconLine(skulls, "\u2620", RED, false));
-        }
+        lines.add(withIconLabel(buildIconLine(skulls, "\u2620", skulls < 0 ? GRAY : RED, false), 84));
 
         return new PlayerStatsPayload(
                 PlayerStatsPayload.CURRENT_VERSION,
@@ -212,11 +228,14 @@ public final class ViewStatsBuilder {
 
     /** datapack 双分支处理：score ≤ -1 显示 negative，score ≥ 1 显示 positive，0 不显示。 */
     private static void appendDualBranch(List<Component> lines, int val, ViewStatsRegistry.StatEntry e) {
-        if (val <= -1 && e.hasNegativeBranch()) {
-            lines.add(buildIconLine(val, e.icon(), e.negativeColor(), false));
-        } else if (val >= 1) {
-            lines.add(buildIconLine(val, e.icon(), e.positiveColor(), false));
-        }
+        TextColor color = val < 0 && e.hasNegativeBranch() ? e.negativeColor()
+                : val > 0 ? e.positiveColor() : null;
+        if (color == null) return;
+        MutableComponent row = buildIconLine(val, e.icon(), color, false);
+        int label = com.ctt.healthdisplay.health.StatLabels.iconLabel(e.objective());
+        if (label > 0) withIconLabel(row, label);
+        if (e.objective().equals("DarkKarma")) withIconLabel(row, "misc88_amrak_1");
+        lines.add(row);
     }
 
     /**
@@ -233,12 +252,13 @@ public final class ViewStatsBuilder {
         return line;
     }
 
-    /** SpeedAmplifier 特殊：{@code [score]% Speed Amplifier} 全段 bold + 同色。 */
-    private static MutableComponent buildSpeedAmpLine(int score, TextColor color) {
-        Style style = Style.EMPTY.withColor(color).withBold(true);
-        MutableComponent line = Component.literal(String.valueOf(score)).withStyle(style);
-        line.append(Component.literal("% Speed Amplifier").withStyle(style));
-        return line;
+    private static MutableComponent withIconLabel(MutableComponent row, int label) {
+        return withIconLabel(row, "view_stats_" + label);
+    }
+
+    private static MutableComponent withIconLabel(MutableComponent row, String key) {
+        return row.withStyle(style -> style.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(
+                Component.translatable(key))));
     }
 
     /**

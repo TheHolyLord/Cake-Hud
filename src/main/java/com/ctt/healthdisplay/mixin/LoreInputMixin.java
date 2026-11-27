@@ -1,7 +1,7 @@
 package com.ctt.healthdisplay.mixin;
 
 import com.ctt.healthdisplay.client.LorePopupManager;
-import com.ctt.healthdisplay.config.ConfigScreen;
+import com.ctt.healthdisplay.config.PreviewDrag;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(MouseHandler.class)
 public abstract class LoreInputMixin {
-    @Unique private ConfigScreen ctt$previewDrag;
+    @Unique private PreviewDrag ctt$previewDrag;
 
     @Inject(method = "onButton", at = @At("HEAD"), cancellable = true)
     private void ctt$click(long window, MouseButtonInfo button, int action, CallbackInfo ci) {
@@ -34,7 +34,7 @@ public abstract class LoreInputMixin {
         } else if (action == InputConstants.PRESS) {
             LorePopupManager.setLeftDown(true);
             if (mc.gui.overlay() != null) return;
-            if (mc.gui.screen() instanceof ConfigScreen config && config.beginPreviewDrag(x, y)) {
+            if (mc.gui.screen() instanceof PreviewDrag config && config.beginPreviewDrag(x, y)) {
                 ctt$previewDrag = config;
                 ci.cancel();
             } else if (LorePopupManager.click(mc.gui.screen(), x, y)) {

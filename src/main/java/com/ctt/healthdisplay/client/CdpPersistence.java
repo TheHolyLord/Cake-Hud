@@ -119,15 +119,17 @@ public final class CdpPersistence {
          * 看到 0 则不放进 {@code stageHistoryEnterMs}，由分关表 buildStage 用迭代序兜底。
          */
         public long enterMs;
+        public String dungeonName;
 
         public StageEntry() {}
 
-        public StageEntry(StageKey key, long dealt, int kills, long durationMs, long enterMs) {
+        public StageEntry(StageKey key, long dealt, int kills, long durationMs, long enterMs, String dungeonName) {
             this.key        = new StageKeyDto(key);
             this.dealt      = dealt;
             this.kills      = kills;
             this.durationMs = durationMs;
             this.enterMs    = enterMs;
+            this.dungeonName = dungeonName == null || dungeonName.isBlank() ? null : dungeonName;
         }
     }
 

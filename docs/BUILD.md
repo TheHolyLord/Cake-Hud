@@ -38,8 +38,10 @@ Windows 下使用 `gradlew.bat`；若仓库尚未附带 wrapper，可在装有�
 
 | 文件 | 说明 |
 | --- | --- |
-| `build/libs/fabric_upgrade-<version>.jar` | 模组主文件，放入 `.minecraft/mods` |
-| `build/libs/fabric_upgrade-<version>-sources.jar` | 源码包，不含可运行编译产物 |
+| `build/libs/cake-tower-hud-<version>.jar` | 模组主文件，放入 `.minecraft/mods` |
+| `build/libs/cake-tower-hud-<version>-sources.jar` | 源码包，不含可运行编译产物 |
+
+`gradle.properties` 中的 `mod_version` 带内部构建标记（如 `2.0.2-r92`），`build.gradle` 在打包时用 `replaceFirst(/-r\d+$/, '')` 去掉，安装包与游戏内显示保持一致（`2.0.2`）。
 
 ## 资源处理注意事项
 

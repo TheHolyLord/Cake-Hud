@@ -2,7 +2,8 @@ plugins {
     id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
 
-version = project.mod_version
+// 发布时只使用正式版本号，安装包和游戏内显示保持一致。
+version = project.mod_version.replaceFirst(/-r\d+$/, '')
 group = project.maven_group
 
 repositories { mavenCentral() }

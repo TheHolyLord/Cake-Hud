@@ -342,6 +342,8 @@ public final class StatsTableData {
      */
     private static String localizeStageName(StageKey key) {
         if (key == null) return "?";
+        String dungeonName = com.ctt.healthdisplay.client.ClientDamageProbe.INSTANCE.dungeonName(key);
+        if (!dungeonName.isEmpty()) return dungeonName;
         String type = key.stageType();
         int num = parseIntOrZero(key.stageNum());
 

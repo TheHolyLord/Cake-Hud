@@ -431,8 +431,13 @@ public final class DamagePanelRenderer {
         double avg = grandEvents > 0 ? (double) grandTotal / grandEvents : 0.0;
         // v6.6.0 · M1 · 切片对齐：summary 的"承伤总"也按 scope 取
         PlayerTakenStats.Snapshot ts = currentScopedTakenSnapshot();
-        String line = String.format("总 %s  事件 %d  DPS %.0f  平均 %.1f  最高 %d  承 %s",
-                fmt(grandTotal), grandEvents, dps, avg, snap.totalMaxHit(), fmt(ts.totalTaken()));
+        String dpsText = ModConfig.INSTANCE.compactHudNumbers && dps >= 1000
+                ? HudNumbers.amount(Math.round(dps)) : String.format("%.0f", dps);
+        String averageText = ModConfig.INSTANCE.compactHudNumbers && avg >= 1000
+                ? HudNumbers.amount(Math.round(avg)) : String.format("%.1f", avg);
+        String line = String.format("总 %s  事件 %s  DPS %s  平均 %s  最高 %s  承 %s",
+                fmt(grandTotal), HudNumbers.amount(grandEvents), dpsText, averageText,
+                HudNumbers.amount(snap.totalMaxHit()), fmt(ts.totalTaken()));
         ctx.text(tr, Component.literal(line), x + PADDING_X, y + 2, COLOR_LABEL, true);
     }
 
@@ -496,8 +501,9 @@ public final class DamagePanelRenderer {
         int assists = stageScope
                 ? ClientStatsCache.getAssistsAt(row.uuid(), curKey)
                 : ClientStatsCache.getAssists(row.uuid());
-        String detail = String.format("\u4e8b\u4ef6 %d \u00b7 \u6700\u9ad8 %d \u00b7 \u51fb\u6740 %d \u00b7 \u52a9\u653b %d",
-                row.events(), row.maxHit(), kills, assists);
+        String detail = String.format("\u4e8b\u4ef6 %s \u00b7 \u6700\u9ad8 %s \u00b7 \u51fb\u6740 %s \u00b7 \u52a9\u653b %s",
+                HudNumbers.amount(row.events()), HudNumbers.amount(row.maxHit()),
+                HudNumbers.amount(kills), HudNumbers.amount(assists));
         ctx.text(tr, Component.literal(detail), x + PADDING_X, y + 12, COLOR_LABEL, true);
 
         // v6.5.0 · 第二条 detail 行：承伤 / 单次峰值。数据来自 ClientStatsCache（同 session）。
@@ -506,8 +512,8 @@ public final class DamagePanelRenderer {
                 ? ClientStatsCache.getTakenAt(row.uuid(), curKey)
                 : ClientStatsCache.getTaken(row.uuid());
         int takenMax = ClientStatsCache.getMaxHit(row.uuid());
-        String taken2 = String.format("\u627f\u4f24 %s \u00b7 \u5355\u6b21\u5cf0 %d",
-                fmt(taken), takenMax);
+        String taken2 = String.format("\u627f\u4f24 %s \u00b7 \u5355\u6b21\u5cf0 %s",
+                fmt(taken), HudNumbers.amount(takenMax));
         ctx.text(tr, Component.literal(taken2), x + PADDING_X, y + 22, COLOR_TAKEN, true);
 
         // 进度条：保留（数据可视化必要）——仅剩"黑底 + 前景"两层；不画整面板背景
@@ -531,7 +537,7 @@ public final class DamagePanelRenderer {
         String valueStr = fmt(unAll);
         int valW = tr.width(valueStr);
         int rightX = x + PANEL_WIDTH - PADDING_X;
-        String evStr = String.format("%d 事件", snap.unattributedAllEvents());
+        String evStr = HudNumbers.amount(snap.unattributedAllEvents()) + " 事件";
         int evW = tr.width(evStr);
         ctx.text(tr, Component.literal(evStr),    rightX - evW,             y + 1, COLOR_UNATTR, true);
         ctx.text(tr, Component.literal(valueStr), rightX - evW - 6 - valW,  y + 1, COLOR_UNATTR, true);
@@ -540,25 +546,25 @@ public final class DamagePanelRenderer {
 
         // 四子层独立行（NONE / FILTER / HEAL / CARRY）
         int unKills = ClientStatsCache.killSnapshot().unattributedKills();
-        String noneLine = String.format("L9-NONE %s (%d) \u00b7 \u672a\u5206\u7c7b\u51fb\u6740 %d",
-                fmt(snap.unattributedNone()), snap.unattributedNoneEvents(), unKills);
+        String noneLine = String.format("L9-NONE %s (%s) \u00b7 \u672a\u5206\u7c7b\u51fb\u6740 %s",
+                fmt(snap.unattributedNone()), HudNumbers.amount(snap.unattributedNoneEvents()), HudNumbers.amount(unKills));
         ctx.text(tr, Component.literal(noneLine),
                 x + PADDING_X, y + 12, COLOR_UNATTR, true);
 
-        String filtLine = String.format("L9-FILT %s (%d) \u00b7 \u9ed1\u540d\u5355\u8fc7\u6ee4 %s",
-                fmt(snap.unattributedFiltered()), snap.unattributedFilteredEvents(),
+        String filtLine = String.format("L9-FILT %s (%s) \u00b7 \u9ed1\u540d\u5355\u8fc7\u6ee4 %s",
+                fmt(snap.unattributedFiltered()), HudNumbers.amount(snap.unattributedFilteredEvents()),
                 java.util.Arrays.toString(com.ctt.healthdisplay.config.ServerConfig.INSTANCE.initHpJumpValues));
         ctx.text(tr, Component.literal(filtLine),
                 x + PADDING_X, y + 22, COLOR_L9_FILT, true);
 
-        String healLine = String.format("L9-HEAL %s (%d) \u00b7 \u7eff\u8272\u56de\u8840\u7c92\u5b50",
-                fmt(snap.unattributedHeal()), snap.unattributedHealEvents());
+        String healLine = String.format("L9-HEAL %s (%s) \u00b7 \u7eff\u8272\u56de\u8840\u7c92\u5b50",
+                fmt(snap.unattributedHeal()), HudNumbers.amount(snap.unattributedHealEvents()));
         ctx.text(tr, Component.literal(healLine),
                 x + PADDING_X, y + 32, COLOR_L9_HEAL, true);
 
         // v6.5.9 · L8 carry 兜底剥离行
-        String carryLine = String.format("L9-CARRY %s (%d) \u00b7 L8 carry \u517c\u5e95\u5269\u9910",
-                fmt(snap.unattributedCarry()), snap.unattributedCarryEvents());
+        String carryLine = String.format("L9-CARRY %s (%s) \u00b7 L8 carry \u517c\u5e95\u5269\u9910",
+                fmt(snap.unattributedCarry()), HudNumbers.amount(snap.unattributedCarryEvents()));
         ctx.text(tr, Component.literal(carryLine),
                 x + PADDING_X, y + 42, COLOR_L9_CARRY, true);
     }
@@ -570,7 +576,7 @@ public final class DamagePanelRenderer {
         StringBuilder sb = new StringBuilder();
         for (AttackerProbe.Layer l : values) {
             if (sb.length() > 0) sb.append(' ');
-            sb.append(l.shortTag()).append('=').append(lc[l.ordinal()]);
+            sb.append(l.shortTag()).append('=').append(HudNumbers.amount(lc[l.ordinal()]));
         }
         ctx.text(tr, Component.literal(sb.toString()), x + PADDING_X, y, COLOR_LABEL, true);
         String hint = "L 开面板 · 任何 Screen 下均可点按钮 · 拖 [+] 移动";
@@ -713,9 +719,7 @@ public final class DamagePanelRenderer {
     // =========================================================================
     //  小工具
     // =========================================================================
-    /** 千位分隔符格式化，便于对大数字读出来。 */
     private static String fmt(long n) {
-        if (n < 1000) return Long.toString(n);
-        return String.format("%,d", n);
+        return ModConfig.INSTANCE.compactHudNumbers ? HudNumbers.amount(n, true) : String.format("%,d", n);
     }
 }

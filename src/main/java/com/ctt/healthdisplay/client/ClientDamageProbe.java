@@ -301,6 +301,10 @@ public final class ClientDamageProbe {
         if (!Objects.equals(rep, currentStageKey)) {
             onStageChanged(rep);
         }
+        String dungeonName = ClientStageDetector.takeDungeonName(rep);
+        if (!dungeonName.isEmpty()) {
+            dungeonNames.put(rep, dungeonName);
+        }
 
         // 3. 扫描 text_display 实体
         Scoreboard sb = world.getScoreboard();
@@ -504,6 +508,11 @@ public final class ClientDamageProbe {
      * 与服务端 {@code STAGE_ENTER_MS} 语义对齐（"何时第一次踏进这关"）。
      */
     private final java.util.LinkedHashMap<StageKey, Long> stageHistoryEnterMs = new java.util.LinkedHashMap<>();
+    private final Map<StageKey, String> dungeonNames = new java.util.HashMap<>();
+
+    public String dungeonName(StageKey key) {
+        return key == null ? "" : dungeonNames.getOrDefault(key, "");
+    }
 
     /**
      * v7.0.17 · 当前关进入时刻（{@link System#currentTimeMillis}）。
@@ -596,7 +605,7 @@ public final class ClientDamageProbe {
             int kills = stageHistoryKills.getOrDefault(k, 0);
             long dur = stageHistoryDurationMs.getOrDefault(k, 0L);
             long enter = stageHistoryEnterMs.getOrDefault(k, 0L);
-            snap.stageHistory.add(new CdpPersistence.StageEntry(k, dealt, kills, dur, enter));
+            snap.stageHistory.add(new CdpPersistence.StageEntry(k, dealt, kills, dur, enter, dungeonName(k)));
         }
         // 仅有 kills / 仅有时长但没 dealt 的 key 也要带上（休息室无伤害但停留有时长）
         for (Map.Entry<StageKey, Long> e : stageHistoryDurationMs.entrySet()) {
@@ -605,7 +614,7 @@ public final class ClientDamageProbe {
             long dur = e.getValue() == null ? 0L : e.getValue();
             int kills = stageHistoryKills.getOrDefault(k, 0);
             long enter = stageHistoryEnterMs.getOrDefault(k, 0L);
-            snap.stageHistory.add(new CdpPersistence.StageEntry(k, 0L, kills, dur, enter));
+            snap.stageHistory.add(new CdpPersistence.StageEntry(k, 0L, kills, dur, enter, dungeonName(k)));
         }
         for (Map.Entry<StageKey, Integer> e : stageHistoryKills.entrySet()) {
             if (stageHistoryDealt.containsKey(e.getKey())) continue;
@@ -613,7 +622,7 @@ public final class ClientDamageProbe {
             StageKey k = e.getKey();
             int kills = e.getValue() == null ? 0 : e.getValue();
             long enter = stageHistoryEnterMs.getOrDefault(k, 0L);
-            snap.stageHistory.add(new CdpPersistence.StageEntry(k, 0L, kills, 0L, enter));
+            snap.stageHistory.add(new CdpPersistence.StageEntry(k, 0L, kills, 0L, enter, dungeonName(k)));
         }
         return snap;
     }
@@ -632,10 +641,12 @@ public final class ClientDamageProbe {
         stageHistoryKills.clear();
         stageHistoryDurationMs.clear();
         stageHistoryEnterMs.clear();
+        dungeonNames.clear();
         if (snap.stageHistory == null) return;
         for (CdpPersistence.StageEntry en : snap.stageHistory) {
             if (en == null || en.key == null) continue;
             StageKey k = en.key.toKey();
+            if (en.dungeonName != null && !en.dungeonName.isBlank()) dungeonNames.put(k, en.dungeonName);
             if (en.dealt > 0L) stageHistoryDealt.put(k, en.dealt);
             if (en.kills > 0) stageHistoryKills.put(k, en.kills);
             if (en.durationMs > 0L) stageHistoryDurationMs.put(k, en.durationMs);
@@ -657,6 +668,9 @@ public final class ClientDamageProbe {
         stageHistoryDealt.clear();
         stageHistoryDurationMs.clear();
         stageHistoryEnterMs.clear();
+        String currentDungeonName = dungeonName(currentStageKey);
+        dungeonNames.clear();
+        if (!currentDungeonName.isEmpty()) dungeonNames.put(currentStageKey, currentDungeonName);
         // v7.1.0 · 击杀计数 + HP 缓存一并清空
         globalKills = 0L;
         stageKills = 0;
@@ -696,6 +710,7 @@ public final class ClientDamageProbe {
         freezeCurrentStage();
         CdpPersistence.save(captureSnapshot());
         clearAll();
+        dungeonNames.clear();
         currentStageKey = null;
         currentStageStartMs = 0L;
         lastTickCounter = -1L;
